@@ -1,0 +1,618 @@
+/**
+ * TokenHud: the real-time token consumption dashboard.
+ *
+ * A compact panel pinned to the bottom-right of the viewport. Two views:
+ *
+ * - **实时 (live)**: polls the host snapshot route and renders per-session
+ *   token usage with a live SVG history curve carrying real time ticks and
+ *   a range switch (2m / 5m / 15m).
+ * - **统计 (stats)**: polls the host stats route and renders per-day and
+ *   per-month usage bars from durable JSONL logs.
+ *
+ * Colors follow the DSH design tokens, so the HUD matches the host theme
+ * (light and dark) automatically.
+ *
+ * @module dsh-token-panel/client/hud
+ */
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import css from './TokenHud.module.css'
+
+/** Host routes. */
+const SNAPSHOT_URL = '/plugins/dsh-token-panel/snapshot'
+const STATS_URL = '/plugins/dsh-token-panel/stats'
+/** Poll cadence (ms); keep in sync with the host default. */
+const POLL_MS = 1500
+/** Stats poll cadence (ms) — daily totals move slowly. */
+const STATS_POLL_MS = 10_000
+
+/** Time-range options for the history curve. */
+const RANGES: readonly { label: string; ms: number }[] = [
+  { label: '2m', ms: 2 * 60_000 },
+  { label: '5m', ms: 5 * 60_000 },
+  { label: '15m', ms: 15 * 60_000 },
+]
+
+/** One session's token row as served by the host. */
+export interface SessionTokenRow {
+  readonly sessionId: string
+  readonly live: boolean
+  /** Display label: session title when available, else the id tail. */
+  readonly label: string
+  /** Session title text when the title service has one. */
+  readonly title?: string
+  readonly totalTokens: number
+  readonly surfaceTokens: number
+  readonly usage?: {
+    readonly uncachedInputTokens: number
+    readonly outputTokens: number
+    readonly cacheReadTokens: number
+    readonly cacheWriteTokens: number
+  }
+  readonly pressureTokens?: number
+  readonly projectedTokens?: number
+  readonly contextWindow?: number
+  readonly systemTokens: number
+  readonly toolsTokens: number
+  readonly messageTokens: number
+  /** Rolling history of total pressure per poll tick (oldest first). */
+  readonly history?: readonly HistoryPoint[]
+}
+
+/** One timestamped history sample. */
+export interface HistoryPoint {
+  readonly t: number
+  readonly total: number
+}
+
+/** Aggregate snapshot body. */
+export interface TokenSnapshot {
+  readonly generatedAt: number
+  readonly sessions: readonly SessionTokenRow[]
+  readonly prices?: PriceEstimate
+}
+
+/** One day's usage aggregate. */
+export interface DayStat {
+  readonly date: string
+  readonly input: number
+  readonly output: number
+  readonly cacheRead: number
+  readonly cacheWrite: number
+  readonly total: number
+}
+
+/** One month's usage aggregate. */
+export interface MonthStat {
+  readonly month: string
+  readonly input: number
+  readonly output: number
+  readonly cacheRead: number
+  readonly cacheWrite: number
+  readonly total: number
+}
+
+/** Durable statistics payload. */
+export interface TokenStats {
+  readonly generatedAt: number
+  readonly days: readonly DayStat[]
+  readonly months: readonly MonthStat[]
+  readonly prices?: PriceEstimate
+}
+
+/** Display-only price estimate (CNY per 1M tokens). */
+export interface PriceEstimate {
+  readonly input: number
+  readonly cacheRead: number
+  readonly output: number
+}
+
+function formatNumber(value: number): string {
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`
+  return String(Math.round(value))
+}
+
+/** Format a timestamp as HH:MM:SS. */
+function formatTime(t: number): string {
+  const date = new Date(t)
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  const ss = String(date.getSeconds()).padStart(2, '0')
+  return `${hh}:${mm}:${ss}`
+}
+
+/** Short Chinese date label for a YYYY-MM-DD key. */
+function dateLabel(date: string): string {
+  const [y, m, d] = date.split('-')
+  const now = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  if (date === today) return '今天'
+  return `${Number(m)}月${Number(d)}日`
+}
+
+/** Month label for a YYYY-MM key. */
+function monthLabel(month: string): string {
+  const [y, m] = month.split('-')
+  const now = new Date()
+  if (Number(y) === now.getFullYear() && Number(m) === now.getMonth() + 1) return '本月'
+  return `${y}年${Number(m)}月`
+}
+
+/** Estimate cost in CNY from usage buckets (cache hit priced separately). */
+function estimateCost(
+  input: number,
+  cacheRead: number,
+  cacheWrite: number,
+  output: number,
+  prices: PriceEstimate,
+): number {
+  return (
+    ((input + cacheWrite) / 1_000_000) * prices.input
+    + (cacheRead / 1_000_000) * prices.cacheRead
+    + (output / 1_000_000) * prices.output
+  )
+}
+
+/** Estimate session cost in CNY from provider usage buckets. */
+function estimateRowCost(row: SessionTokenRow, prices: PriceEstimate): number {
+  const usage = row.usage
+  if (usage === undefined) return 0
+  return estimateCost(
+    usage.uncachedInputTokens,
+    usage.cacheReadTokens,
+    usage.cacheWriteTokens,
+    usage.outputTokens,
+    prices,
+  )
+}
+
+/** Format a CNY cost for display. */
+function formatCost(cost: number): string {
+  if (cost >= 1) return `¥${cost.toFixed(2)}`
+  if (cost >= 0.01) return `¥${cost.toFixed(3)}`
+  return `¥${(cost * 100).toFixed(1)}分`
+}
+
+/** Occupancy percent for the pressure bar (capacity may be absent). */
+function occupancy(row: SessionTokenRow): number | undefined {
+  const capacity = row.contextWindow
+  if (capacity === undefined || capacity <= 0) return undefined
+  const pressure = row.projectedTokens ?? row.pressureTokens ?? row.totalTokens
+  return Math.min(100, Math.max(0, (pressure / capacity) * 100))
+}
+
+/** Filter history points to the trailing window ending at `now`. */
+function filterRange(points: readonly HistoryPoint[], now: number, rangeMs: number): readonly HistoryPoint[] {
+  const cutoff = now - rangeMs
+  return points.filter((point) => point.t >= cutoff)
+}
+
+/** Format a timestamp for a date-scale axis (M/D). */
+function formatDateTick(t: number): string {
+  const date = new Date(t)
+  return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
+/**
+ * Sparkline: renders the timestamped history as an SVG area chart with
+ * ticks on the bottom axis. Pass `tickFormat` for non-time scales (e.g.
+ * daily/monthly stats).
+ */
+function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatTime }: {
+  readonly points: readonly HistoryPoint[]
+  readonly now: number
+  readonly width?: number
+  readonly height?: number
+  readonly tickFormat?: (t: number) => string
+}) {
+  const path = useMemo(() => {
+    if (points.length < 2) return null
+    const max = Math.max(...points.map((point) => point.total), 1)
+    const min = Math.min(...points.map((point) => point.total), 0)
+    const span = Math.max(max - min, 1)
+    const t0 = points[0]?.t ?? now
+    const t1 = points[points.length - 1]?.t ?? now
+    const tSpan = Math.max(t1 - t0, 1)
+    const y = (value: number): number => height - 16 - ((value - min) / span) * (height - 24)
+    const x = (t: number): number => ((t - t0) / tSpan) * width
+    const coords = points.map((point) => [x(point.t), y(point.total)] as const)
+    const line = coords.map(([xValue, yValue], index) =>
+      `${index === 0 ? 'M' : 'L'}${xValue.toFixed(1)},${yValue.toFixed(1)}`).join(' ')
+    const area = `${line} L${width},${height - 12} L0,${height - 12} Z`
+    const last = coords[coords.length - 1]
+    if (last === undefined) return null
+    const ticks = [0, 0.5, 1].map((fraction) => {
+      const t = t0 + tSpan * fraction
+      return { t, x: x(t) }
+    })
+    return { line, area, last, ticks }
+  }, [points, width, height, now])
+
+  if (path === null) {
+    return <div className={css.sparkEmpty} style={{ width, height }}>等待数据…</div>
+  }
+
+  return (
+    <svg className={css.spark} viewBox={`0 0 ${width} ${height}`} width="100%" height={height}
+      preserveAspectRatio="none" role="img" aria-label="token 消耗曲线">
+      <defs>
+        <linearGradient id="tokenSparkFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--dsw-alias-state-business-primary)" stopOpacity="0.32" />
+          <stop offset="100%" stopColor="var(--dsw-alias-state-business-primary)" stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      <path d={path.area} fill="url(#tokenSparkFill)" />
+      <path d={path.line} fill="none" stroke="var(--dsw-alias-state-business-primary)"
+        strokeWidth="1.6" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={path.last[0]} cy={path.last[1]} r="2.6"
+        fill="var(--dsw-alias-bg-module-platform)"
+        stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1.4" />
+      {path.ticks.map((tick) => (
+        <text key={tick.t} x={tick.x} y={height - 3}
+          textAnchor={tick.x < width * 0.15 ? 'start' : tick.x > width * 0.85 ? 'end' : 'middle'}
+          className={css.sparkTick}>
+          {tickFormat(tick.t)}
+        </text>
+      ))}
+    </svg>
+  )
+}
+
+/** Collapsed pill shown when the panel is closed. */
+function CollapsedChip({ total, onClick }: {
+  readonly total: number
+  readonly onClick: () => void
+}) {
+  return (
+    <button type="button" className={css.chip} onClick={onClick} aria-label="打开 Token 面板">
+      <span className={css.chipDot} aria-hidden />
+      <span className={css.chipLabel}>TOKEN</span>
+      <span className={css.chipValue}>{formatNumber(total)}</span>
+    </button>
+  )
+}
+
+/** One session row inside the live view. */
+function SessionRow({ row, prices, rangeMs, now }: {
+  readonly row: SessionTokenRow
+  readonly prices: PriceEstimate
+  readonly rangeMs: number
+  readonly now: number
+}) {
+  const [open, setOpen] = useState(false)
+  const usage = row.usage
+  const cost = estimateRowCost(row, prices)
+  const used = occupancy(row)
+  const label = row.label !== '' ? row.label : row.sessionId.slice(-8)
+  const history = filterRange(row.history ?? [], now, rangeMs)
+  // Cumulative consumption across all buckets (the "usage total").
+  const cumulative = usage === undefined
+    ? undefined
+    : usage.uncachedInputTokens + usage.outputTokens + usage.cacheReadTokens + usage.cacheWriteTokens
+
+  return (
+    <div className={css.row} data-open={open}>
+      <button
+        type="button"
+        className={css.rowHead}
+        onClick={() => { setOpen((current) => !current) }}
+        aria-expanded={open}
+      >
+        <span className={css.rowName} title={`${row.title ?? ''} ${row.sessionId}`}>
+          <span className={css.rowTitle}>{label}</span>
+          {row.title !== undefined && row.title !== '' && (
+            <span className={css.rowSub}>{row.sessionId.slice(-8)}</span>
+          )}
+        </span>
+        <span className={css.rowTokensWrap}>
+          <span className={css.rowTokens} title="当前上下文压力">{formatNumber(row.totalTokens)}</span>
+          {cumulative !== undefined && (
+            <span className={css.rowCumulative} title="累计消耗">≈{formatNumber(cumulative)}</span>
+          )}
+        </span>
+        <span className={css.rowPulse} data-live={row.live} aria-hidden />
+      </button>
+      {open && (
+        <div className={css.rowDetail}>
+          {history.length >= 2 && <Sparkline points={history} now={now} />}
+          <div className={css.detailLine}>
+            <span className={css.detailItem}><span className={css.detailLabel}>输入</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.uncachedInputTokens)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>输出</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.outputTokens)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>缓存读</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.cacheReadTokens)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>缓存写</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.cacheWriteTokens)}</span></span>
+          </div>
+          <div className={css.detailLine}>
+            <span className={css.detailItem}><span className={css.detailLabel}>压力</span><span className={css.mono}>{row.pressureTokens === undefined ? '—' : formatNumber(row.pressureTokens)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>预计</span><span className={css.mono}>{row.projectedTokens === undefined ? '—' : formatNumber(row.projectedTokens)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>容量</span><span className={css.mono}>{row.contextWindow === undefined ? '—' : formatNumber(row.contextWindow)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>成本</span><span className={css.mono}>{formatCost(cost)}</span></span>
+          </div>
+          {used !== undefined && (
+            <div className={css.barTrack} aria-label={`上下文占用 ${used.toFixed(0)}%`}>
+              <span className={css.barFill} style={{ width: `${used}%` }} data-hot={used > 85} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** One horizontal usage bar (day or month). */
+function StatBar({ label, value, max, input, output, cacheRead, cacheWrite, cost }: {
+  readonly label: string
+  readonly value: number
+  readonly max: number
+  readonly input: number
+  readonly output: number
+  readonly cacheRead: number
+  readonly cacheWrite: number
+  readonly cost: number
+}) {
+  const width = max > 0 ? Math.max(2, (value / max) * 100) : 0
+  return (
+    <div className={css.statRow}>
+      <span className={css.statLabel}>{label}</span>
+      <span className={css.statBarTrack}>
+        <span className={css.statBarFill} style={{ width: `${width}%` }} />
+      </span>
+      <span className={css.statValue}>{formatNumber(value)}</span>
+      <span className={css.statCost}>{formatCost(cost)}</span>
+    </div>
+  )
+}
+
+/** The stats view: per-month and per-day usage bars, switched separately. */
+function StatsView({ stats }: {
+  readonly stats: TokenStats | null
+}) {
+  const [subView, setSubView] = useState<'days' | 'months'>('days')
+
+  if (stats === null) {
+    return <span className={css.empty}>统计数据加载中…</span>
+  }
+  const prices = stats.prices ?? { input: 1, cacheRead: 0.02, output: 2 }
+  const maxMonth = Math.max(...stats.months.map((month) => month.total), 1)
+  const maxDay = Math.max(...stats.days.map((day) => day.total), 1)
+  const totalAll = stats.months.reduce((sum, month) => sum + month.total, 0)
+  const totalCost = stats.months.reduce(
+    (sum, month) => sum + estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, prices),
+    0,
+  )
+  const hasData = stats.months.length > 0 || stats.days.length > 0
+  // Convert day/month aggregates to sparkline points (midnight / month-start timestamps).
+  const dayPoints = useMemo<readonly HistoryPoint[]>(() => stats.days.map((day) => ({
+    t: Date.parse(`${day.date}T12:00:00`),
+    total: day.total,
+  })), [stats.days])
+  const monthPoints = useMemo<readonly HistoryPoint[]>(() => stats.months.map((month) => ({
+    t: Date.parse(`${month.month}-15T12:00:00`),
+    total: month.total,
+  })), [stats.months])
+  return (
+    <div className={css.statsBody}>
+      <div className={css.statsTotal}>
+        <span className={css.statsTotalLabel}>累计消耗</span>
+        <span className={css.mono}>{formatNumber(totalAll)}</span>
+        <span className={css.statsTotalSub}>token · 约 {formatCost(totalCost)}</span>
+      </div>
+      {hasData && (
+        <div className={css.viewBar} role="group" aria-label="统计粒度">
+          <button type="button" className={css.viewButton} data-active={subView === 'days'} onClick={() => { setSubView('days') }}>按日</button>
+          <button type="button" className={css.viewButton} data-active={subView === 'months'} onClick={() => { setSubView('months') }}>按月</button>
+        </div>
+      )}
+      {subView === 'months' ? (
+        stats.months.length > 0 ? (
+          <section className={css.statsSection}>
+            <header className={css.statsSectionHead}>按月 · 全部</header>
+            {monthPoints.length >= 2 && (
+              <div className={css.statsSparkWrap}>
+                <Sparkline points={monthPoints} now={Date.now()} height={64} tickFormat={formatDateTick} />
+              </div>
+            )}
+            {stats.months.map((month) => (
+              <StatBar key={month.month} label={monthLabel(month.month)} value={month.total} max={maxMonth}
+                input={month.input} output={month.output} cacheRead={month.cacheRead} cacheWrite={month.cacheWrite}
+                cost={estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, prices)} />
+            ))}
+          </section>
+        ) : (
+          <span className={css.empty}>暂无按月数据</span>
+        )
+      ) : (
+        stats.days.length > 0 ? (
+          <section className={css.statsSection}>
+            <header className={css.statsSectionHead}>按日 · 全部</header>
+            {dayPoints.length >= 2 && (
+              <div className={css.statsSparkWrap}>
+                <Sparkline points={dayPoints} now={Date.now()} height={64} tickFormat={formatDateTick} />
+              </div>
+            )}
+            {stats.days.map((day) => (
+              <StatBar key={day.date} label={dateLabel(day.date)} value={day.total} max={maxDay}
+                input={day.input} output={day.output} cacheRead={day.cacheRead} cacheWrite={day.cacheWrite}
+                cost={estimateCost(day.input, day.cacheRead, day.cacheWrite, day.output, prices)} />
+            ))}
+          </section>
+        ) : (
+          <span className={css.empty}>暂无按日数据</span>
+        )
+      )}
+      {!hasData && (
+        <span className={css.empty}>暂无统计数据（使用会话后自动记录）</span>
+      )}
+    </div>
+  )
+}
+
+/** The top-level HUD: polling, view switching and layout. */
+export function TokenHud(): JSX.Element {
+  const [snapshot, setSnapshot] = useState<TokenSnapshot | null>(null)
+  const [stats, setStats] = useState<TokenStats | null>(null)
+  const [view, setView] = useState<'live' | 'stats'>('live')
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [rangeMs, setRangeMs] = useState<number>(RANGES[1]?.ms ?? 5 * 60_000)
+  const [now, setNow] = useState<number>(Date.now())
+  const [showAll, setShowAll] = useState(false)
+  const inFlight = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const tick = async (): Promise<void> => {
+      if (inFlight.current || cancelled) return
+      inFlight.current = true
+      try {
+        const response = await fetch(SNAPSHOT_URL, { cache: 'no-store' })
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const body = (await response.json()) as TokenSnapshot
+        if (!cancelled && Array.isArray(body.sessions)) {
+          setSnapshot(body)
+          setNow(Date.now())
+          setError(null)
+        }
+      } catch (cause: unknown) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause))
+      } finally {
+        inFlight.current = false
+      }
+    }
+    void tick()
+    const timer = setInterval(() => { void tick() }, POLL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [])
+
+  // Stats poll at a slower cadence.
+  useEffect(() => {
+    let cancelled = false
+    const tick = async (): Promise<void> => {
+      try {
+        const response = await fetch(STATS_URL, { cache: 'no-store' })
+        if (!response.ok) return
+        const body = (await response.json()) as TokenStats
+        if (!cancelled && Array.isArray(body.days)) setStats(body)
+      } catch {
+        // Keep the last stats snapshot.
+      }
+    }
+    void tick()
+    const timer = setInterval(() => { void tick() }, STATS_POLL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [])
+
+  const totals = useMemo(() => {
+    if (snapshot === null) return { total: 0, output: 0 }
+    let total = 0
+    let output = 0
+    for (const row of snapshot.sessions) {
+      total += row.totalTokens
+      output += row.usage?.outputTokens ?? 0
+    }
+    return { total, output }
+  }, [snapshot])
+
+  const prices = snapshot?.prices ?? { input: 1, cacheRead: 0.02, output: 2 }
+
+  const topHistory = useMemo(() => {
+    if (snapshot === null || snapshot.sessions.length === 0) return []
+    return filterRange(snapshot.sessions[0]?.history ?? [], now, rangeMs)
+  }, [snapshot, now, rangeMs])
+
+  if (snapshot === null) {
+    return (
+      <div className={css.host}>
+        <CollapsedChip total={0} onClick={() => { setOpen(true) }} />
+      </div>
+    )
+  }
+
+  return (
+    <div className={css.host}>
+      {!open && <CollapsedChip total={totals.total} onClick={() => { setOpen(true) }} />}
+      {open && (
+        <aside className={css.panel} data-token-panel>
+          <header className={css.head}>
+            <span className={css.title}>
+              <span className={css.titleMark} aria-hidden />TOKEN&nbsp;HUD
+            </span>
+            <div className={css.viewBar} role="group" aria-label="视图切换">
+              <button type="button" className={css.viewButton} data-active={view === 'live'} onClick={() => { setView('live') }}>实时</button>
+              <button type="button" className={css.viewButton} data-active={view === 'stats'} onClick={() => { setView('stats') }}>统计</button>
+            </div>
+            <button
+              type="button"
+              className={css.closeButton}
+              onClick={() => { setOpen(false) }}
+              aria-label="收起"
+            >
+              ✕
+            </button>
+          </header>
+          {view === 'live' ? (
+            <>
+              {topHistory.length >= 2 && (
+                <div className={css.sparkWrap}>
+                  <div className={css.rangeBar} role="group" aria-label="时间范围">
+                    {RANGES.map((range) => (
+                      <button
+                        key={range.label}
+                        type="button"
+                        className={css.rangeButton}
+                        data-active={range.ms === rangeMs}
+                        onClick={() => { setRangeMs(range.ms) }}
+                      >
+                        {range.label}
+                      </button>
+                    ))}
+                  </div>
+                  <Sparkline points={topHistory} now={now} />
+                </div>
+              )}
+              <div className={css.body}>
+                {snapshot.sessions.length === 0 && (
+                  <span className={css.empty}>无活动会话</span>
+                )}
+                {snapshot.sessions.slice(0, showAll ? undefined : 3).map((row) => (
+                  <SessionRow key={row.sessionId} row={row} prices={prices} rangeMs={rangeMs} now={now} />
+                ))}
+                {!showAll && snapshot.sessions.length > 3 && (
+                  <button type="button" className={css.moreButton} onClick={() => { setShowAll(true) }}>
+                    展开全部 {snapshot.sessions.length} 个会话
+                  </button>
+                )}
+                {showAll && snapshot.sessions.length > 3 && (
+                  <button type="button" className={css.moreButton} onClick={() => { setShowAll(false) }}>
+                    收起，只看前 3 个
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className={css.body}>
+              <StatsView stats={stats} />
+            </div>
+          )}
+          <footer className={css.foot}>
+            <span className={css.footHint}>
+              {error !== null
+                ? `连接中断 · ${error}`
+                : view === 'live'
+                  ? `实时 TOTAL ${formatNumber(totals.total)} · OUT ${formatNumber(totals.output)}`
+                  : '按日按月统计'}
+            </span>
+            <span className={css.mono}>{new Date(snapshot.generatedAt).toLocaleTimeString()}</span>
+          </footer>
+        </aside>
+      )}
+    </div>
+  )
+}

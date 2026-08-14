@@ -1,0 +1,31 @@
+# dsh-token-panel bundle patch: mounts the token panel plugin into the host
+# composition of a dsh profile. The plugin exposes two HTTP routes
+# (`/plugins/dsh-token-panel/snapshot` for live usage and
+# `/plugins/dsh-token-panel/stats` for durable per-day/per-month
+# statistics); the browser HUD polls them and renders the dashboard.
+#
+# Install: `dsh plugin --profile <name> add <this package>` (npm or a local
+# path). The `dsh plugin` command pnpm-installs the package into the profile
+# and reconciles it into the profile's `dsh.profile.bundles` layer list.
+- insert:
+    - id: token-panel
+      name: dsh-token-panel
+      config:
+        # Poll cadence hint consumed by the browser panel (ms).
+        pollInterval: 1500
+        # Display-only cost estimates in CNY per 1M tokens for
+        # deepseek-v4-flash (official current table). Used only for the
+        # "约 ¥x" figures — the authoritative bill is the provider
+        # dashboard. Adjust to your actual provider/model pricing.
+        #
+        # Current (until 2026-08-16): cache hit 0.02 / miss 1 / output 2.
+        # From 2026-08-17 peak/off-peak pricing:
+        #   off-peak: hit 0.05 / miss 1.5 / output 4.5
+        #   peak (9-12, 14-18 CST): hit 0.10 / miss 3.0 / output 9.0
+        # deepseek-v4-pro current: hit 0.025 / miss 3 / output 6.
+        pricePerMInput: 1
+        pricePerMCacheRead: 0.02
+        pricePerMOutput: 2
+        # Durable per-day usage log directory. Defaults to
+        # ~/.dsh/cache/dsh-token-panel when omitted.
+        # dataDir: C:\Users\q1684\.dsh\cache\dsh-token-panel
