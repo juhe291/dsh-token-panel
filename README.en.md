@@ -19,39 +19,6 @@
 
 ---
 
-## Overview
-
-A compact pill in the bottom-right corner shows the total token pressure in real time. Click it to expand a dashboard with two switchable views — **Live** and **Stats** — styled with DSH design tokens (auto light/dark adaptation). The panel **follows your current conversation**: when you open a different chat, the panel shows that session; empty and historic sessions stay hidden behind a "Show all" toggle.
-
-### 🟢 Live View
-
-| Feature | Description |
-|---|---|
-| Session list | One row per session: **title + current context pressure + cumulative usage + session cost**; titles come from the DSH session-title service |
-| Session details | Click a row: input / output / cache-read / cache-write, pressure / projected / capacity, estimated cost, context-usage progress bar (turns red above 85%) |
-| Live curves | Per-session SVG area chart with auto-scaling Y axis (1/2/2.5/5×10ⁿ rounding + hysteresis, zero when idle), gridlines, dashed leader with live value pill, and **2m / 5m / 15m** range switching |
-| Follows current session | Only the open conversation is shown by default; historic sessions collapse behind "Show all" (survive restarts) |
-| Empty-session filter | Fresh conversations with 0 tokens are hidden entirely |
-| TPS | Generation speed (t/s) shown on the pill and the footer |
-
-### 📊 Stats View
-
-| Feature | Description |
-|---|---|
-| Daily / Monthly | Independent tabs listing every day / month with bars, token counts and estimated cost |
-| Trend curves | SVG curves over days / months with M/D date ticks and Y-axis labels |
-| Cumulative total | Total tokens consumed plus the ≈¥ estimated cost |
-| Budget & balance | Monthly budget bar when `budgetMonthly` is set (red over budget); auto-fetched DeepSeek account balance |
-| Durable | Usage is written to per-day JSONL logs on disk — **survives restarts** |
-
-> ⚠️ **Number scale note**: the stats view's "Daily / Monthly" figures are **cumulative historical consumption** (input + output + **cache reads** summed); cache reads usually dominate, so a single day can reach hundreds of millions of tokens (displayed with the M suffix). The live view, by contrast, shows **current context pressure** (tokens in context right now, typically tens of thousands — k suffix). **These are two different quantities**; seeing "live 400k / stats 100M" is expected, not a bug. The `≈` number on a session row is that session's cumulative consumption, and the `¥` figure is its estimated cost — both matching the stats-view scale.
-
-### 💰 Cost Estimation
-
-Priced with the **official DeepSeek rates** (CNY per 1M tokens), billing cache hits, uncached input and output separately. Display-only — the provider dashboard is authoritative. Peak/off-peak pricing supported (see Configuration).
-
----
-
 ## Installation
 
 ### From GitHub
@@ -109,6 +76,39 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 - **Daily / Monthly** tabs: every day/month with bars, token counts and estimated cost, plus trend curves
 - Cumulative total + ≈¥ cost; a monthly budget bar when `budgetMonthly` is set (turns red over budget); auto-fetched DeepSeek account balance
 - Usage is persisted per day (JSONL) and survives restarts
+
+---
+
+## Overview
+
+A compact pill in the bottom-right corner shows the total token pressure in real time. Click it to expand a dashboard with two switchable views — **Live** and **Stats** — styled with DSH design tokens (auto light/dark adaptation). The panel **follows your current conversation**: when you open a different chat, the panel shows that session; empty and historic sessions stay hidden behind a "Show all" toggle.
+
+### 🟢 Live View
+
+| Feature | Description |
+|---|---|
+| Session list | One row per session: **title + current context pressure + cumulative usage + session cost**; titles come from the DSH session-title service |
+| Session details | Click a row: input / output / cache-read / cache-write, pressure / projected / capacity, estimated cost, context-usage progress bar (turns red above 85%) |
+| Live curves | Per-session SVG area chart with auto-scaling Y axis (1/2/2.5/5×10ⁿ rounding + hysteresis, zero when idle), gridlines, dashed leader with live value pill, and **2m / 5m / 15m** range switching |
+| Follows current session | Only the open conversation is shown by default; historic sessions collapse behind "Show all" (survive restarts) |
+| Empty-session filter | Fresh conversations with 0 tokens are hidden entirely |
+| TPS | Generation speed (t/s) shown on the pill and the footer |
+
+### 📊 Stats View
+
+| Feature | Description |
+|---|---|
+| Daily / Monthly | Independent tabs listing every day / month with bars, token counts and estimated cost |
+| Trend curves | SVG curves over days / months with M/D date ticks and Y-axis labels |
+| Cumulative total | Total tokens consumed plus the ≈¥ estimated cost |
+| Budget & balance | Monthly budget bar when `budgetMonthly` is set (red over budget); auto-fetched DeepSeek account balance |
+| Durable | Usage is written to per-day JSONL logs on disk — **survives restarts** |
+
+> ⚠️ **Number scale note**: the stats view's "Daily / Monthly" figures are **cumulative historical consumption** (input + output + **cache reads** summed); cache reads usually dominate, so a single day can reach hundreds of millions of tokens (displayed with the M suffix). The live view, by contrast, shows **current context pressure** (tokens in context right now, typically tens of thousands — k suffix). **These are two different quantities**; seeing "live 400k / stats 100M" is expected, not a bug. The `≈` number on a session row is that session's cumulative consumption, and the `¥` figure is its estimated cost — both matching the stats-view scale.
+
+### 💰 Cost Estimation
+
+Priced with the **official DeepSeek rates** (CNY per 1M tokens), billing cache hits, uncached input and output separately. Display-only — the provider dashboard is authoritative. Peak/off-peak pricing supported (see Configuration).
 
 ---
 
