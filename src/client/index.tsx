@@ -72,6 +72,8 @@ export function apply(ctx: ClientContext): void {
     granularity: 'Granularity',
     openPanel: 'Open Token panel',
     dragHint: 'Drag to move the panel',
+    backToCorner: 'Back to corner',
+    cancelMenu: 'Cancel',
     contextBar: 'Context usage {pct}%',
   }
   const zh: TokenHudLocale = {
@@ -121,6 +123,8 @@ export function apply(ctx: ClientContext): void {
     granularity: '统计粒度',
     openPanel: '打开 Token 面板',
     dragHint: '拖拽标题可移动面板',
+    backToCorner: '回到右下角',
+    cancelMenu: '取消',
     contextBar: '上下文占用 {pct}%',
   }
 

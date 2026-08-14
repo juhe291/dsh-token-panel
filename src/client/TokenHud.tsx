@@ -179,6 +179,10 @@ export interface TokenHudLocale {
   readonly openPanel: string
   /** Tooltip hint for the draggable title bar. */
   readonly dragHint: string
+  /** Long-press menu: reset the panel to the default corner. */
+  readonly backToCorner: string
+  /** Long-press menu: dismiss. */
+  readonly cancelMenu: string
   /** Template: '{pct}' is replaced with the percent number. */
   readonly contextBar: string
 }
@@ -728,6 +732,21 @@ export function TokenHud({ t, sessionsList }: {
   const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean; last: { x: number; y: number } } | null>(null)
   /** Set after a real drag ends, so the trailing click event is suppressed. */
   const suppressClickRef = useRef(false)
+  /** Long-press menu state (opened by holding the pill 600ms without moving). */
+  const [pressMenu, setPressMenu] = useState(false)
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Close the long-press menu on any outside pointerdown.
+  useEffect(() => {
+    if (!pressMenu) return
+    const onOutside = (event: PointerEvent): void => {
+      const target = event.target as HTMLElement | null
+      if (target !== null && target.closest('[data-press-menu]') !== null) return
+      setPressMenu(false)
+    }
+    document.addEventListener('pointerdown', onOutside)
+    return () => { document.removeEventListener('pointerdown', onOutside) }
+  }, [pressMenu])
 
   const onDragStart = (event: React.PointerEvent<HTMLElement>): void => {
     // Anchor on the element's current on-screen position, not (0,0) —
@@ -743,6 +762,15 @@ export function TokenHud({ t, sessionsList }: {
       moved: false,
       last: { x: baseX, y: baseY },
     }
+    // Long-press detection: holding still for 600ms opens the corner menu.
+    if (pressTimerRef.current !== null) clearTimeout(pressTimerRef.current)
+    pressTimerRef.current = setTimeout(() => {
+      const drag = dragState.current
+      if (drag === null || drag.moved) return
+      // Fired from a still hold: show the menu and swallow the release click.
+      setPressMenu(true)
+      suppressClickRef.current = true
+    }, 600)
   }
   const onDragMove = (event: React.PointerEvent<HTMLElement>): void => {
     const drag = dragState.current
@@ -753,10 +781,19 @@ export function TokenHud({ t, sessionsList }: {
     // the title never nudge the panel.
     if (!drag.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
     drag.moved = true
+    // Movement cancels the long-press timer (this is a drag, not a hold).
+    if (pressTimerRef.current !== null) {
+      clearTimeout(pressTimerRef.current)
+      pressTimerRef.current = null
+    }
     drag.last = { x: drag.baseX + dx, y: drag.baseY + dy }
     setPosition(drag.last)
   }
   const onDragEnd = (): void => {
+    if (pressTimerRef.current !== null) {
+      clearTimeout(pressTimerRef.current)
+      pressTimerRef.current = null
+    }
     const drag = dragState.current
     if (drag === null) return
     const moved = drag.moved
@@ -918,6 +955,28 @@ export function TokenHud({ t, sessionsList }: {
 
   return (
     <div className={css.host} style={hostStyle}>
+      {pressMenu && (
+        <div className={css.pressMenu} data-press-menu>
+          <button
+            type="button"
+            className={css.pressMenuItem}
+            onClick={() => {
+              resetPosition()
+              setPressMenu(false)
+              suppressClickRef.current = false
+            }}
+          >
+            ↺ {t('backToCorner')}
+          </button>
+          <button
+            type="button"
+            className={css.pressMenuItem}
+            onClick={() => { setPressMenu(false) }}
+          >
+            {t('cancelMenu')}
+          </button>
+        </div>
+      )}
       {!open && (
         <div {...dragHandlers} style={{ cursor: 'grab' }}>
           <CollapsedChip total={totals.total} cumulative={totals.cumulative} tps={tps}
