@@ -527,7 +527,7 @@ function niceCeil(value: number): number {
   return nice * magnitude
 }
 
-function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatTime, t }: {
+function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatTime, t }: {
   readonly points: readonly HistoryPoint[]
   readonly now: number
   readonly width?: number
@@ -537,6 +537,11 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
 }) {
   /** Left gutter reserved for the Y-axis value labels. */
   const AXIS_W = 46
+  /** Vertical layout constants (kept in sync with the label positions below):
+   *  unit label at y=2, yMax gridline at TOP, yMin gridline at BOT, time ticks
+   *  at height-6 — each label gets an even ~25px band so nothing collides. */
+  const TOP = 14
+  const BOT = height - 24
   const plotW = width - AXIS_W
   // Hysteresis state: the axis rises immediately but only steps down when
   // the data drops below half the current scale (Steam-like stability).
@@ -548,8 +553,8 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
     if (points.length === 1) {
       const only = points[0]
       if (only === undefined) return null
-      const yTop = 6
-      const yBot = height - 14
+      const yTop = TOP
+      const yBot = BOT
       const axisMax = niceCeil(only.total)
       return {
         kind: 'dot' as const,
@@ -574,14 +579,14 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
     const t0 = points[0]?.t ?? now
     const t1 = points[points.length - 1]?.t ?? now
     const tSpan = Math.max(t1 - t0, 1)
-    // Reserve a 14px bottom band for tick labels so they never clip.
-    const y = (value: number): number => height - 18 - ((value - min) / span) * (height - 28)
+    // Plot area sits between TOP and BOT (gridlines at both ends).
+    const y = (value: number): number => BOT - ((value - min) / span) * (BOT - TOP)
     // Right edge keeps 4px clearance so the last dot never clips the panel.
     const x = (t: number): number => AXIS_W + ((t - t0) / tSpan) * (plotW - 4)
     const coords = points.map((point) => [x(point.t), y(point.total)] as const)
     const line = coords.map(([xValue, yValue], index) =>
       `${index === 0 ? 'M' : 'L'}${xValue.toFixed(1)},${yValue.toFixed(1)}`).join(' ')
-    const area = `${line} L${width},${height - 14} L${AXIS_W},${height - 14} Z`
+    const area = `${line} L${width},${BOT} L${AXIS_W},${BOT} Z`
     const last = coords[coords.length - 1]
     if (last === undefined) return null
     const ticks = [0, 0.5, 1].map((fraction) => {
@@ -594,19 +599,18 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
       yMid: max / 2,
       yMin: min,
     }
-  }, [points, width, height, now, plotW])
+  }, [points, width, height, now, plotW, TOP, BOT])
 
   if (path === null) {
     return <div className={css.sparkEmpty} style={{ width, height }}>{t('waiting')}</div>
   }
 
   // Y-axis value labels (top/middle/bottom) + faint gridlines.
-  // Layout: unit label at the very top (y=2), ticks below it (y=10 / mid /
-  // bottom y=height-20) so nothing collides with the time ticks at the base.
+  // Even spacing: unit at y=2, ticks at TOP / mid / BOT, time at height-6.
   const yLabels = [
-    { value: path.yMax, y: 10 },
-    { value: path.yMid, y: (height - 20 + 10) / 2 },
-    { value: path.yMin, y: height - 20 },
+    { value: path.yMax, y: TOP },
+    { value: path.yMid, y: (TOP + BOT) / 2 },
+    { value: path.yMin, y: BOT },
   ]
 
   return (
@@ -629,20 +633,27 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
         r="3" fill="var(--dsw-alias-bg-module-platform)"
         stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1.6" />
       {/* Current-value indicator: dashed leader from the latest point to the
-          Y axis plus a highlighted label that follows the value in real time. */}
+          Y axis plus a label pill floating next to the latest point (above it
+          normally, below when the point hugs the top). */}
       {(path.kind === 'line' || path.kind === 'dot') && (() => {
         const cx = path.kind === 'line' ? path.last[0] : path.x
         const cy = path.kind === 'line' ? path.last[1] : path.y
         const text = formatAxisTick(points[points.length - 1]?.total ?? 0)
         const labelW = text.length * 5 + 8
+        // Pill floats above the point; flip below when near the top edge.
+        const pillY = cy - 20 < 6 ? cy + 12 : cy - 20
+        const pillX = Math.min(Math.max(cx, AXIS_W + labelW / 2 + 4), width - labelW / 2 - 4)
         return (
           <>
             <line x1={AXIS_W} y1={cy} x2={cx} y2={cy}
               stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1"
               vectorEffect="non-scaling-stroke" strokeDasharray="3 3" opacity="0.55" />
-            <rect x={AXIS_W - labelW - 4} y={cy - 8} width={labelW} height={13} rx={6.5}
+            <line x1={cx} y1={cy} x2={cx} y2={pillY + (pillY < cy ? 10 : -4)}
+              stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1"
+              vectorEffect="non-scaling-stroke" strokeDasharray="2 2" opacity="0.4" />
+            <rect x={pillX - labelW / 2} y={pillY} width={labelW} height={13} rx={6.5}
               fill="var(--dsw-alias-state-business-primary)" opacity="0.9" />
-            <text x={AXIS_W - labelW / 2 - 4} y={cy + 1.5}
+            <text x={pillX} y={pillY + 10}
               textAnchor="middle"
               className={css.sparkCurrent}>
               {text}
@@ -950,11 +961,11 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
           <div className={css.statsSparkWrap}>
             {subView === 'months'
               ? (monthPoints.length >= 1 && (
-                <Sparkline points={monthPoints} now={Date.now()} height={72}
+                <Sparkline points={monthPoints} now={Date.now()} height={84}
                   tickFormat={(value) => formatMonthTick(value, t)} t={t} />
               ))
               : (dayPoints.length >= 1 && (
-                <Sparkline points={dayPoints} now={Date.now()} height={72} tickFormat={formatDateTick} t={t} />
+                <Sparkline points={dayPoints} now={Date.now()} height={84} tickFormat={formatDateTick} t={t} />
               ))}
           </div>
           {listCount > 0 && (

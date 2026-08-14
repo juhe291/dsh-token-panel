@@ -398,7 +398,7 @@
 
 /* ---- light sections: caption labels + whitespace + faint hairline ---- */
 .section {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .section:last-child {
@@ -408,7 +408,7 @@
 /* Faint hairline between blocks: separates without breaking the mood. */
 .section + .section {
   border-top: 1px solid color-mix(in srgb, var(--dsw-alias-border-l2) 45%, transparent);
-  padding-top: 14px;
+  padding-top: 12px;
 }
 
 /* Apple-style section caption: 13px regular weight, mono stays.
@@ -418,7 +418,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 0 2px 10px;
+  padding: 0 2px 8px;
   color: var(--dsw-alias-label-secondary);
   font-size: 13px;
   letter-spacing: 0.04em;
@@ -853,7 +853,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 5px 2px 2px;
+  padding: 3px 2px 1px;
 }
 
 .editLabel {
