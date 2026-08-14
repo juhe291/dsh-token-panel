@@ -376,6 +376,12 @@ function formatTime(t: number): string {
   return `${hh}:${mm}:${ss}`
 }
 
+/** Format a timestamp as a compact date, e.g. 8/14 (today: just the time). */
+function formatDateShort(t: number): string {
+  const date = new Date(t)
+  return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
 /** Locale-aware date label for a YYYY-MM-DD key. */
 function dateLabel(date: string, t: Translate): string {
   const [y, m, d] = date.split('-')
@@ -1770,27 +1776,30 @@ export function TokenHud({ t, sessionsList }: {
               editInputRef={editInputRef} onSave={saveEdit} onHint={showHint} onHintEnd={hideHint} />
           )}
           <footer className={css.foot}>
-            <span className={css.footHint}>
-              {error !== null
-                ? fill(t('disconnected'), { error })
-                : view === 'live'
-                  ? fill(t('pollLive'), { total: formatNumber(totals.total), out: formatNumber(totals.output) })
-                  : t('pollStats')}
-              {tps > 0 && (
-                <span className={css.footTps}> · {tps >= 10 ? Math.round(tps) : tps.toFixed(1)} t/s</span>
-              )}
-              {prices.mode !== undefined && (
-                <span className={css.footPrice} data-mode={prices.mode}>
-                  {prices.mode === 'peak' ? t('pricePeak') : prices.mode === 'offpeak' ? t('priceOffpeak') : t('priceFlat')}
-                </span>
-              )}
-            </span>
-            <span className={css.footRight}>
+            <div className={css.footCol}>
+              <span className={css.footHint}>
+                {error !== null
+                  ? fill(t('disconnected'), { error })
+                  : view === 'live'
+                    ? fill(t('pollLive'), { total: formatNumber(totals.total), out: formatNumber(totals.output) })
+                    : t('pollStats')}
+                {tps > 0 && (
+                  <span className={css.footTps}> · {tps >= 10 ? Math.round(tps) : tps.toFixed(1)} t/s</span>
+                )}
+                {prices.mode !== undefined && (
+                  <span className={css.footPrice} data-mode={prices.mode}>
+                    {prices.mode === 'peak' ? t('pricePeak') : prices.mode === 'offpeak' ? t('priceOffpeak') : t('priceFlat')}
+                  </span>
+                )}
+              </span>
               <span className={css.footCost}>
                 {t('costNow')} <b>{formatCost(totalCostNow)}</b>
               </span>
+            </div>
+            <div className={`${css.footCol} ${css.footRightCol}`}>
+              <span className={css.footDate}>{formatDateShort(snapshot.generatedAt)}</span>
               <span className={css.mono}>{new Date(snapshot.generatedAt).toLocaleTimeString()}</span>
-            </span>
+            </div>
           </footer>
         </aside>
       )}

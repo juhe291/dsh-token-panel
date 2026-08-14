@@ -740,14 +740,27 @@
 
 .foot {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 7px 16px;
   border-top: 1px solid var(--dsw-alias-border-l2);
   color: var(--dsw-alias-label-tertiary);
   font-size: 9px;
   letter-spacing: 0.1em;
+}
+
+/* Two stacked rows per side: status/cost left, date/time right. */
+.footCol {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.footRightCol {
+  align-items: flex-end;
+  text-align: right;
 }
 
 .foot .mono {
@@ -755,10 +768,10 @@
   font-size: 9px;
 }
 
-.footRight {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
+.footDate {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 9px;
+  letter-spacing: 0.08em;
 }
 
 .footTps {
