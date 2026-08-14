@@ -1751,12 +1751,10 @@ export function TokenHud({ t, sessionsList }: {
               </section>
             </div>
           ) : (
-            <div className={css.body}>
-              <StatsView stats={stats} t={t} budgetMonthly={budgetMonthly}
-                totalCost={totalCostNow} effectiveBalance={effectiveBalance}
-                editing={editing} setEditing={setEditing} editDraft={editDraft} setEditDraft={setEditDraft}
-                editInputRef={editInputRef} onSave={saveEdit} onHint={showHint} onHintEnd={hideHint} />
-            </div>
+            <StatsView stats={stats} t={t} budgetMonthly={budgetMonthly}
+              totalCost={totalCostNow} effectiveBalance={effectiveBalance}
+              editing={editing} setEditing={setEditing} editDraft={editDraft} setEditDraft={setEditDraft}
+              editInputRef={editInputRef} onSave={saveEdit} onHint={showHint} onHintEnd={hideHint} />
           )}
           <footer className={css.foot}>
             <span className={css.footHint}>

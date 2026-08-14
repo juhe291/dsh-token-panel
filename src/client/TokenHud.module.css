@@ -811,12 +811,11 @@
 
 /* ---- stats view ---- */
 
-/* StatsView renders inside the outer .body (which already pads 8/14/16),
-   so this wrapper must NOT pad again — otherwise the stats view gets double
-   side/bottom whitespace vs the live view. */
+/* StatsView renders directly inside the panel (no outer .body wrapper),
+   so it carries the same padding and scroll behavior as the live .body. */
 .statsBody {
   overflow-y: auto;
-  padding: 0;
+  padding: 8px 14px 16px;
   flex: 1;
   min-height: 0;
 }
