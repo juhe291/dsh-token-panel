@@ -3,7 +3,7 @@
 # dsh-token-panel
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.2-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
 [![Platform](https://img.shields.io/badge/platform-web-cyan?style=flat-square)](https://github.com/juhe291/dsh-token-panel)
 [![Topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-8A2BE2?style=flat-square)](https://github.com/topics/dsh-plugin)
 
@@ -20,8 +20,10 @@
 > ℹ️ **Cover note**: the banner above is a rendered **illustration** (not an actual screenshot), for promotional display only. Real UI: see the screenshot below.
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="dsh-token-panel live and stats views" width="100%">
+  <img src="assets/screenshot.png" alt="dsh-token-panel live view" width="100%">
 </p>
+
+> 📷 Above: the live view (peak rate + session cost + current cost footer). The stats view is described below.
 
 ---
 
