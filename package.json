@@ -38,7 +38,7 @@
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.client.json && tsdown",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "verify": "node scripts/verify.mjs",
-    "prepare": "pnpm install && pnpm run build && pnpm run verify"
+    "prepare": "pnpm run build && pnpm run verify"
   },
   "engines": {
     "node": ">=18"
