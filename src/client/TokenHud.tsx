@@ -725,18 +725,21 @@ export function TokenHud({ t, sessionsList }: {
       return null
     }
   })
-  const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null)
+  const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean; last: { x: number; y: number } } | null>(null)
 
   const onDragStart = (event: React.PointerEvent<HTMLElement>): void => {
     // Anchor on the element's current on-screen position, not (0,0) —
     // the default state is CSS right/bottom (bottom-right corner).
     const rect = event.currentTarget.getBoundingClientRect()
+    const baseX = position?.x ?? rect.left
+    const baseY = position?.y ?? rect.top
     dragState.current = {
       startX: event.clientX,
       startY: event.clientY,
-      baseX: position?.x ?? rect.left,
-      baseY: position?.y ?? rect.top,
+      baseX,
+      baseY,
       moved: false,
+      last: { x: baseX, y: baseY },
     }
   }
   const onDragMove = (event: React.PointerEvent<HTMLElement>): void => {
@@ -748,19 +751,19 @@ export function TokenHud({ t, sessionsList }: {
     // the title never nudge the panel.
     if (!drag.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
     drag.moved = true
-    setPosition({
-      x: drag.baseX + dx,
-      y: drag.baseY + dy,
-    })
+    drag.last = { x: drag.baseX + dx, y: drag.baseY + dy }
+    setPosition(drag.last)
   }
   const onDragEnd = (): void => {
     const drag = dragState.current
     if (drag === null) return
     const moved = drag.moved
+    const final = drag.last
     dragState.current = null
     if (!moved) return
     try {
-      window.localStorage.setItem('dsh-token-panel-pos', JSON.stringify(position))
+      // Persist the ref-tracked final position (never a stale closure value).
+      window.localStorage.setItem('dsh-token-panel-pos', JSON.stringify(final))
     } catch {
       // Storage unavailable; position simply resets next load.
     }

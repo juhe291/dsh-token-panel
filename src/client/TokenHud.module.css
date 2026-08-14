@@ -88,8 +88,11 @@
 }
 
 @keyframes tokenPanelIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  /* Opacity-only fade: transform-based entry animations shift the element
+     mid-animation, which corrupts getBoundingClientRect() during the first
+     drag attempt. */
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .panel {
