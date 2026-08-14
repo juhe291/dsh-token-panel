@@ -149,8 +149,12 @@ export interface TokenHudLocale {
     readonly openPanel: string;
     /** Tooltip hint for the draggable title bar. */
     readonly dragHint: string;
+    /** Long-press menu: position submenu. */
+    readonly positionMenu: string;
     /** Long-press menu: reset the panel to the default corner. */
     readonly backToCorner: string;
+    /** Long-press menu: set the current position as the new default. */
+    readonly setAsDefault: string;
     /** Long-press menu: dismiss. */
     readonly cancelMenu: string;
     /** Template: '{pct}' is replaced with the percent number. */

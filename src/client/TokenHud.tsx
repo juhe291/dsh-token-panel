@@ -179,8 +179,12 @@ export interface TokenHudLocale {
   readonly openPanel: string
   /** Tooltip hint for the draggable title bar. */
   readonly dragHint: string
+  /** Long-press menu: position submenu. */
+  readonly positionMenu: string
   /** Long-press menu: reset the panel to the default corner. */
   readonly backToCorner: string
+  /** Long-press menu: set the current position as the new default. */
+  readonly setAsDefault: string
   /** Long-press menu: dismiss. */
   readonly cancelMenu: string
   /** Template: '{pct}' is replaced with the percent number. */
@@ -716,10 +720,24 @@ export function TokenHud({ t, sessionsList }: {
   const [showAll, setShowAll] = useState(false)
   const inFlight = useRef(false)
 
-  // Draggable position (persisted in localStorage; null = CSS default bottom-right).
+  /** User-defined initial position (null = system bottom-right corner). */
+  const [defaultPos, setDefaultPos] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      const raw = window.localStorage.getItem('dsh-token-panel-default-pos')
+      if (raw === null) return null
+      const parsed = JSON.parse(raw) as { x: number; y: number }
+      if (typeof parsed.x === 'number' && typeof parsed.y === 'number') return parsed
+      return null
+    } catch {
+      return null
+    }
+  })
+  // Draggable position: the user-defined default wins on load; otherwise the
+  // last dragged position; otherwise the CSS bottom-right corner.
   const [position, setPosition] = useState<{ x: number; y: number } | null>(() => {
     try {
-      const raw = window.localStorage.getItem('dsh-token-panel-pos')
+      const raw = window.localStorage.getItem('dsh-token-panel-default-pos')
+        ?? window.localStorage.getItem('dsh-token-panel-pos')
       if (raw === null) return null
       const parsed = JSON.parse(raw) as { x: number; y: number }
       if (typeof parsed.x === 'number' && typeof parsed.y === 'number') return parsed
@@ -736,6 +754,8 @@ export function TokenHud({ t, sessionsList }: {
   const longPressTriggeredRef = useRef(false)
   /** Long-press menu state (opened by holding the pill 600ms without moving). */
   const [pressMenu, setPressMenu] = useState(false)
+  /** Position submenu expanded inside the long-press menu. */
+  const [pressSubMenu, setPressSubMenu] = useState(false)
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const panelRef = useRef<HTMLElement | null>(null)
 
@@ -861,14 +881,35 @@ export function TokenHud({ t, sessionsList }: {
     }
   }
 
-  /** Reset to the default bottom-right corner and forget the saved position. */
-  const resetPosition = (): void => {
+  /** Back to the system bottom-right corner and forget the saved position. */
+  const goToDefault = (): void => {
     setPosition(null)
+    setPressMenu(false)
+    setPressSubMenu(false)
     try {
       window.localStorage.removeItem('dsh-token-panel-pos')
     } catch {
       // Storage unavailable; position simply resets next load.
     }
+  }
+
+  /** Save the current position as the user-defined initial position. */
+  const setCurrentAsDefault = (): void => {
+    // Sentinel: no position (currently at the corner) stores nothing, so the
+    // system corner remains the default.
+    if (position === null) {
+      setDefaultPos(null)
+      try {
+        window.localStorage.removeItem('dsh-token-panel-default-pos')
+      } catch { /* storage unavailable */ }
+    } else {
+      setDefaultPos(position)
+      try {
+        window.localStorage.setItem('dsh-token-panel-default-pos', JSON.stringify(position))
+      } catch { /* storage unavailable */ }
+    }
+    setPressMenu(false)
+    setPressSubMenu(false)
   }
 
   // Current session id from the session list (follows the open conversation).
@@ -1010,18 +1051,35 @@ export function TokenHud({ t, sessionsList }: {
           <button
             type="button"
             className={css.pressMenuItem}
-            onClick={() => {
-              resetPosition()
-              setPressMenu(false)
-              suppressClickUntilRef.current = 0
-            }}
+            onPointerEnter={() => { setPressSubMenu(true) }}
+            onClick={() => { setPressSubMenu((current) => !current) }}
+            aria-expanded={pressSubMenu}
           >
-            ↺ {t('backToCorner')}
+            <span>{t('positionMenu')}</span>
+            <span className={css.pressMenuCaret}>▸</span>
           </button>
+          {pressSubMenu && (
+            <div className={css.pressSubMenu} data-press-menu>
+              <button
+                type="button"
+                className={css.pressMenuItem}
+                onClick={() => { goToDefault(); suppressClickUntilRef.current = 0 }}
+              >
+                ↺ {t('backToCorner')}
+              </button>
+              <button
+                type="button"
+                className={css.pressMenuItem}
+                onClick={() => { setCurrentAsDefault(); suppressClickUntilRef.current = 0 }}
+              >
+                📍 {t('setAsDefault')}
+              </button>
+            </div>
+          )}
           <button
             type="button"
             className={css.pressMenuItem}
-            onClick={() => { setPressMenu(false) }}
+            onClick={() => { setPressMenu(false); setPressSubMenu(false) }}
           >
             {t('cancelMenu')}
           </button>
@@ -1038,8 +1096,8 @@ export function TokenHud({ t, sessionsList }: {
       )}
       {open && (
         <aside className={css.panel} data-token-panel ref={panelRef}>
-          <header className={css.head}>
-            <span className={css.title} {...dragHandlers} title={t('dragHint')}>
+          <header className={css.head} {...dragHandlers}>
+            <span className={css.title} title={t('dragHint')}>
               <span className={css.titleMark} aria-hidden />{t('token')}
             </span>
             <div className={css.viewBar} role="group" aria-label={t('viewSwitch')}
@@ -1050,7 +1108,7 @@ export function TokenHud({ t, sessionsList }: {
             <button
               type="button"
               className={css.closeButton}
-              onClick={() => { resetPosition(); setOpen(false) }}
+              onClick={() => { setOpen(false) }}
               onPointerDown={(event) => { event.stopPropagation() }}
               aria-label={t('close')}
             >
