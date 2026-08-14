@@ -730,8 +730,9 @@ export function TokenHud({ t, sessionsList }: {
     }
   })
   const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean; last: { x: number; y: number } } | null>(null)
-  /** Set after a real drag ends, so the trailing click event is suppressed. */
-  const suppressClickRef = useRef(false)
+  /** Timestamp until which pill clicks are swallowed (drag/hold releases).
+   *  Timestamp-based so a missed click can never wedge it permanently. */
+  const suppressClickUntilRef = useRef(0)
   /** Long-press menu state (opened by holding the pill 600ms without moving). */
   const [pressMenu, setPressMenu] = useState(false)
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -785,7 +786,7 @@ export function TokenHud({ t, sessionsList }: {
       if (drag === null || drag.moved) return
       // Fired from a still hold: show the menu and swallow the release click.
       setPressMenu(true)
-      suppressClickRef.current = true
+      suppressClickUntilRef.current = Date.now() + 600
     }, 600)
   }
   const onDragMove = (event: React.PointerEvent<HTMLElement>): void => {
@@ -829,7 +830,7 @@ export function TokenHud({ t, sessionsList }: {
     if (moved) {
       // Suppress the click that fires after a genuine drag, so dragging the
       // collapsed pill moves it without opening the panel.
-      suppressClickRef.current = true
+      suppressClickUntilRef.current = Date.now() + 600
       try {
         // Persist the ref-tracked final position (never a stale closure value).
         window.localStorage.setItem('dsh-token-panel-pos', JSON.stringify(final))
@@ -990,7 +991,7 @@ export function TokenHud({ t, sessionsList }: {
             onClick={() => {
               resetPosition()
               setPressMenu(false)
-              suppressClickRef.current = false
+              suppressClickUntilRef.current = 0
             }}
           >
             ↺ {t('backToCorner')}
@@ -1008,12 +1009,9 @@ export function TokenHud({ t, sessionsList }: {
         <div {...dragHandlers} style={{ cursor: 'grab' }}>
           <CollapsedChip total={totals.total} cumulative={totals.cumulative} tps={tps}
             onClick={() => {
-              // A click right after a drag is the drag's own release, not a
-              // user intent to open — swallow it once.
-              if (suppressClickRef.current) {
-                suppressClickRef.current = false
-                return
-              }
+              // A click right after a drag/hold is the release itself, not a
+              // user intent to open — swallow it while the window is active.
+              if (Date.now() < suppressClickUntilRef.current) return
               setOpen(true)
             }} t={t} />
         </div>
