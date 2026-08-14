@@ -980,11 +980,11 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
           <div className={css.statsSparkWrap}>
             {subView === 'months'
               ? (monthPoints.length >= 1 && (
-                <Sparkline points={monthPoints} now={Date.now()} height={88}
+                <Sparkline points={monthPoints} now={Date.now()} height={80}
                   tickFormat={(value) => formatMonthTick(value, t)} t={t} />
               ))
               : (dayPoints.length >= 1 && (
-                <Sparkline points={dayPoints} now={Date.now()} height={88} tickFormat={formatDateTick} t={t} />
+                <Sparkline points={dayPoints} now={Date.now()} height={80} tickFormat={formatDateTick} t={t} />
               ))}
           </div>
           {listCount > 0 && (
@@ -1786,15 +1786,14 @@ export function TokenHud({ t, sessionsList }: {
                 {tps > 0 && (
                   <span className={css.footTps}> · {tps >= 10 ? Math.round(tps) : tps.toFixed(1)} t/s</span>
                 )}
-                {prices.mode !== undefined && (
-                  <span className={css.footPrice} data-mode={prices.mode}>
-                    {prices.mode === 'peak' ? t('pricePeak') : prices.mode === 'offpeak' ? t('priceOffpeak') : t('priceFlat')}
-                  </span>
-                )}
               </span>
-              <span className={css.footCost}>
-                {t('costNow')} <b>{formatCost(totalCostNow)}</b>
-              </span>
+              {prices.mode !== undefined && (
+                <span className={css.footPrice} data-mode={prices.mode}>
+                  {prices.mode === 'peak' ? t('pricePeak') : prices.mode === 'offpeak' ? t('priceOffpeak') : t('priceFlat')}
+                </span>
+              )}
+              <span className={css.footCost}>{t('costNow')}</span>
+              <span className={css.footCost}><b>{formatCost(totalCostNow)}</b></span>
             </div>
             <div className={`${css.footCol} ${css.footRightCol}`}>
               <span className={css.footDate}>{formatDateShort(snapshot.generatedAt)}</span>
