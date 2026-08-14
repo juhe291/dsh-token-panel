@@ -805,8 +805,8 @@ export function TokenHud({ t, sessionsList }: {
     const rawX = drag.baseX + dx
     const rawY = drag.baseY + dy
     // Clamp into the viewport so the pill/panel can never be dragged
-    // fully off-screen. Measure the whole HUD host, not the handle.
-    const hostEl = (event.currentTarget as HTMLElement).closest('[data-token-panel-host]')
+    // fully off-screen. Measure the HUD root itself, not the handle.
+    const hostEl = (event.currentTarget as HTMLElement).closest('[data-token-hud]')
     const size = hostEl !== null ? hostEl.getBoundingClientRect() : event.currentTarget.getBoundingClientRect()
     const maxX = Math.max(8, window.innerWidth - size.width - 8)
     const maxY = Math.max(8, window.innerHeight - size.height - 8)
@@ -974,14 +974,14 @@ export function TokenHud({ t, sessionsList }: {
 
   if (snapshot === null) {
     return (
-      <div className={css.host} style={hostStyle}>
+      <div className={css.host} style={hostStyle} data-token-hud>
         <CollapsedChip total={0} onClick={() => { setOpen(true) }} t={t} />
       </div>
     )
   }
 
   return (
-    <div className={css.host} style={hostStyle}>
+    <div className={css.host} style={hostStyle} data-token-hud>
       {pressMenu && (
         <div className={css.pressMenu} data-press-menu>
           <button
