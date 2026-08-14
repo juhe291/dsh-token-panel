@@ -608,7 +608,7 @@ export function TokenHud({ t, sessionsList }: {
   const [showAll, setShowAll] = useState(false)
   const inFlight = useRef(false)
 
-  // Draggable position (persisted in localStorage; defaults bottom-right).
+  // Draggable position (persisted in localStorage; null = CSS default bottom-right).
   const [position, setPosition] = useState<{ x: number; y: number } | null>(() => {
     try {
       const raw = window.localStorage.getItem('dsh-token-panel-pos')
@@ -623,11 +623,14 @@ export function TokenHud({ t, sessionsList }: {
   const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null)
 
   const onDragStart = (event: React.PointerEvent<HTMLElement>): void => {
+    // Anchor on the element's current on-screen position, not (0,0) —
+    // the default state is CSS right/bottom (bottom-right corner).
+    const rect = event.currentTarget.getBoundingClientRect()
     dragState.current = {
       startX: event.clientX,
       startY: event.clientY,
-      baseX: position?.x ?? 0,
-      baseY: position?.y ?? 0,
+      baseX: position?.x ?? rect.left,
+      baseY: position?.y ?? rect.top,
     }
   }
   const onDragMove = (event: React.PointerEvent<HTMLElement>): void => {
@@ -644,6 +647,16 @@ export function TokenHud({ t, sessionsList }: {
     dragState.current = null
     try {
       window.localStorage.setItem('dsh-token-panel-pos', JSON.stringify(position))
+    } catch {
+      // Storage unavailable; position simply resets next load.
+    }
+  }
+
+  /** Reset to the default bottom-right corner and forget the saved position. */
+  const resetPosition = (): void => {
+    setPosition(null)
+    try {
+      window.localStorage.removeItem('dsh-token-panel-pos')
     } catch {
       // Storage unavailable; position simply resets next load.
     }
@@ -800,7 +813,7 @@ export function TokenHud({ t, sessionsList }: {
             <button
               type="button"
               className={css.closeButton}
-              onClick={() => { setOpen(false) }}
+              onClick={() => { resetPosition(); setOpen(false) }}
               aria-label={t('close')}
             >
               ✕
