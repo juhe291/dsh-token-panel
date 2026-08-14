@@ -204,6 +204,14 @@ interface LastUsage {
   readonly cacheWrite: number
 }
 
+/** A previously-seen session snapshot, persisted for restart survival. */
+interface KnownSession {
+  readonly label: string
+  readonly title?: string
+  readonly totalTokens: number
+  readonly lastSeen: number
+}
+
 function defaultDataDir(): string {
   return join(process.env.DSH_HOME ?? join(homedir(), '.dsh'), 'cache', 'dsh-token-panel')
 }
@@ -230,6 +238,7 @@ export class TokenPanelService extends Service {
 
   private readonly history = new Map<string, HistoryPoint[]>()
   private readonly lastUsage = new Map<string, LastUsage>()
+  private readonly knownSessions = new Map<string, KnownSession>()
   private lastSampleAt = 0
   private readonly dataDir: string
   private lastTpsOutput = 0
@@ -243,6 +252,39 @@ export class TokenPanelService extends Service {
       ? config.dataDir
       : defaultDataDir()
     this.loadState()
+    this.loadKnownSessions()
+  }
+
+  /** Restore previously-seen session snapshots from known-sessions.json. */
+  private loadKnownSessions(): void {
+    try {
+      const path = join(this.dataDir, 'known-sessions.json')
+      if (!existsSync(path)) return
+      const rows = JSON.parse(readFileSync(path, 'utf8')) as Record<string, KnownSession>
+      for (const [id, row] of Object.entries(rows)) {
+        if (row !== null && typeof row === 'object'
+          && typeof row.label === 'string' && typeof row.totalTokens === 'number') {
+          this.knownSessions.set(id, row)
+        }
+      }
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`token-panel: known-sessions restore failed: ${String(error)}`)
+    }
+  }
+
+  /** Persist the known-session registry atomically (tmp + rename). */
+  private saveKnownSessions(): void {
+    try {
+      if (!existsSync(this.dataDir)) mkdirSync(this.dataDir, { recursive: true })
+      const rows: Record<string, KnownSession> = {}
+      for (const [id, row] of this.knownSessions) rows[id] = row
+      const tmp = join(this.dataDir, 'known-sessions.json.tmp')
+      const final = join(this.dataDir, 'known-sessions.json')
+      writeFileSync(tmp, JSON.stringify(rows))
+      renameSync(tmp, final)
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`token-panel: known-sessions save failed: ${String(error)}`)
+    }
   }
 
   /** Resolve the price table currently in effect (flat or peak/off-peak). */
@@ -452,7 +494,34 @@ export class TokenPanelService extends Service {
         messageTokens,
         history: [...this.sample(id, totalTokens, now)],
       })
+      // Remember every live session so restarts keep the row (historic
+      // sessions have no live agent after a restart; the registry is the
+      // only way the "show all" list survives).
+      this.knownSessions.set(id, {
+        label: title !== undefined && title !== '' ? title : id.slice(-8),
+        ...(title !== undefined && title !== '' ? { title } : {}),
+        totalTokens,
+        lastSeen: now,
+      })
     }
+
+    // Append historic sessions (no live agent right now) from the registry.
+    for (const [id, known] of this.knownSessions) {
+      if (seen.has(id)) continue
+      sessions.push({
+        sessionId: id,
+        live: false,
+        label: known.label,
+        ...(known.title !== undefined && known.title !== '' ? { title: known.title } : {}),
+        totalTokens: known.totalTokens,
+        surfaceTokens: 0,
+        systemTokens: 0,
+        toolsTokens: 0,
+        messageTokens: 0,
+        history: [],
+      })
+    }
+    this.saveKnownSessions()
 
     this.lastSampleAt = now
 

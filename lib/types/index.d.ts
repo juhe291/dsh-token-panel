@@ -148,6 +148,7 @@ export declare class TokenPanelService extends Service {
     static Config: z<Config>;
     private readonly history;
     private readonly lastUsage;
+    private readonly knownSessions;
     private lastSampleAt;
     private readonly dataDir;
     private lastTpsOutput;
@@ -155,6 +156,10 @@ export declare class TokenPanelService extends Service {
     private cachedBalance;
     private balanceInFlight;
     constructor(ctx: Context, config: Config);
+    /** Restore previously-seen session snapshots from known-sessions.json. */
+    private loadKnownSessions;
+    /** Persist the known-session registry atomically (tmp + rename). */
+    private saveKnownSessions;
     /** Resolve the price table currently in effect (flat or peak/off-peak). */
     resolvePrices(now: number): PriceEstimate;
     /** Restore the last-seen usage baselines from state.json (crash-safe). */
