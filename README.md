@@ -1,135 +1,145 @@
+<div align="center">
+
 # dsh-token-panel
 
-> 实时 Token 消耗 HUD 插件 —— 为 DeepSeek Harness 提供一个右下角常驻的 Token 仪表盘。
-> Real-time token consumption HUD for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): a corner dashboard with live session pressure, cumulative usage, history curves and per-day/per-month statistics.
-> **English: [README.en.md](README.en.md)**
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
+[![Platform](https://img.shields.io/badge/platform-web-cyan?style=flat-square)](https://github.com/juhe291/dsh-token-panel)
+[![Topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-8A2BE2?style=flat-square)](https://github.com/topics/dsh-plugin)
 
-![license](https://img.shields.io/badge/license-MIT-green) ![version](https://img.shields.io/badge/version-0.1.0-blue) ![platform](https://img.shields.io/badge/platform-web-cyan) [![topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-8A2BE2)](https://github.com/topics/dsh-plugin)
+**Real-time token consumption HUD for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — live session pressure, cumulative usage, history curves, and per-day/per-month statistics, in a corner dashboard that follows your current conversation.**
+
+🌐 [**中文**](README_CN.md) ｜ **English**
+
+</div>
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="dsh-token-panel 界面示意图" width="520">
+  <img src="assets/screenshot.png" alt="dsh-token-panel UI preview" width="520">
 </p>
 
 ---
 
-## 功能总览
+## Overview
 
-右下角一枚迷你胶囊实时显示总 Token 压力，点击展开为可切换的 **实时** / **统计** 双视图仪表盘，配色跟随 DSH 主题（浅色 / 深色自动适配）。
+A compact pill in the bottom-right corner shows the total token pressure in real time. Click it to expand a dashboard with two switchable views — **Live** and **Stats** — styled with DSH design tokens (auto light/dark adaptation). The panel **follows your current conversation**: when you open a different chat, the panel shows that session; empty and historic sessions stay hidden behind a "Show all" toggle.
 
-### 🟢 实时视图
+### 🟢 Live View
 
-| 能力 | 说明 |
+| Feature | Description |
 |---|---|
-| 会话列表 | 每个会话一行：**标题 + 当前上下文压力 + 累计消耗**，标题来自 DSH 会话标题服务 |
-| 会话详情 | 点击展开：输入 / 输出 / 缓存读 / 缓存写、压力 / 预计 / 容量、估算成本、上下文占用进度条（>85% 变红） |
-| 实时曲线 | 每会话独立 SVG 面积曲线，带时间刻度（HH:MM:SS），支持 **2m / 5m / 15m** 范围切换 |
-| 多会话管理 | 默认展示前 3 个会话，「展开全部」/「收起」一键切换，会话再多也不挤 |
+| Session list | One row per session: **title + current context pressure + cumulative usage**; titles come from the DSH session-title service |
+| Session details | Click a row: input / output / cache-read / cache-write, pressure / projected / capacity, estimated cost, context-usage progress bar (turns red above 85%) |
+| Live curves | Per-session SVG area chart with real time ticks (HH:MM:SS) and **2m / 5m / 15m** range switching |
+| Follows current session | Only the open conversation is shown by default; historic sessions collapse behind "Show all" — never crowded |
+| Empty-session filter | Fresh conversations with 0 tokens are hidden entirely |
 
-### 📊 统计视图
+### 📊 Stats View
 
-| 能力 | 说明 |
+| Feature | Description |
 |---|---|
-| 按日 / 按月 | 独立切换，全部日期 / 月份逐条展示（柱条 + token 数 + 估算成本） |
-| 趋势曲线 | 每日 / 每月消耗的 SVG 曲线，刻度显示日期（M/D） |
-| 累计消耗 | 顶部汇总：累计 token 总数 + 约 ¥ 估算成本 |
-| 持久化 | 数据按天写入磁盘（JSONL），**重启不丢**，越用越完整 |
+| Daily / Monthly | Independent tabs listing every day / month with bars, token counts and estimated cost |
+| Trend curves | SVG curves over days / months with M/D date ticks |
+| Cumulative total | Total tokens consumed plus the ≈¥ estimated cost |
+| Durable | Usage is written to per-day JSONL logs on disk — **survives restarts** |
 
-### 💰 成本估算
+### 💰 Cost Estimation
 
-按 **DeepSeek 官方价**（人民币 / 百万 token）分级计价：缓存命中、未命中输入、输出分别计费，仅作展示参考，实际以官网账单为准。
+Priced with the **official DeepSeek rates** (CNY per 1M tokens), billing cache hits, uncached input and output separately. Display-only — the provider dashboard is authoritative.
 
 ---
 
-## 安装
+## Installation
 
-### 从 GitHub 安装（推荐）
+### From GitHub
 
 ```sh
 dsh plugin --profile web add github:juhe291/dsh-token-panel
 ```
 
-### 从本地路径安装
+### From a local path
 
 ```sh
 dsh plugin --profile web add C:\path\to\dsh-token-panel
 ```
 
-安装完成后 **重启 profile**，刷新浏览器，右下角出现 TOKEN 胶囊。
+**Restart the profile**, then refresh the browser — the TOKEN pill appears bottom-right.
 
-> ⚠️ **pnpm ≥ 10 拦截 Git 构建脚本**：首次安装若提示 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`，按提示把报错中的 `allowBuilds` 条目加入 profile 目录下的 `pnpm-workspace.yaml`，然后重跑安装命令。这是 pnpm 的安全机制（Git 依赖需要显式允许执行构建脚本），本包已自带 `prepare` 构建脚本与提交好的 `lib/` 产物，允许后即可正常安装。
-
----
-
-## 使用说明
-
-1. 点击右下角 **TOKEN 胶囊**（青色呼吸点 + 当前总压力）展开面板
-2. 面板头部「**实时 | 统计**」切换视图；「**✕**」收起面板
-3. 实时视图：点会话行展开详情与曲线；2m / 5m / 15m 切换曲线窗口
-4. 统计视图：「按日 / 按月」切换粒度，柱状列表 + 趋势曲线同屏
-5. 会话行主数字 = **当前上下文压力**（现在占着多少）；灰色 `≈` 小字 = **累计消耗**（历史总共用了多少，含缓存读）
+> ⚠️ **pnpm ≥ 10 blocks Git build scripts**: if the first install fails with `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`, add the `allowBuilds` entry printed in the error to the `pnpm-workspace.yaml` in your profile directory, then re-run the install command. This package ships a `prepare` build script **and** committed `lib/` artifacts, so it works with or without allowlisted builds.
 
 ---
 
-## 配置
+## Usage
 
-配置位于 profile 的 `cordis.patch.yml`（或 `settings.yaml` 的插件分节）：
+1. Click the **TOKEN pill** (cyan pulsing dot + total pressure) to expand the panel
+2. Switch views with **Live | Stats** at the top; **✕** collapses the panel
+3. Live view: click a session row to expand details and its curve; switch 2m / 5m / 15m windows
+4. Stats view: toggle **Daily / Monthly**; bars and trend curve share the screen
+5. The bold number on a row = **current context pressure** (what is in context right now); the grey `≈` number = **cumulative usage** (everything consumed historically, including cache reads)
+6. The panel follows the conversation you are viewing; "Show all" reveals historic sessions
+
+---
+
+## Configuration
+
+In your profile's `cordis.patch.yml` (or the plugin section of `settings.yaml`):
 
 ```yaml
 - id: token-panel
   name: dsh-token-panel
   config:
-    pollInterval: 1500          # 实时轮询间隔 (ms)
-    pricePerMInput: 1           # 未命中输入价格 (CNY / 百万 token)
-    pricePerMCacheRead: 0.02    # 缓存命中价格 (CNY / 百万 token)
-    pricePerMOutput: 2          # 输出价格 (CNY / 百万 token)
-    # dataDir: ~/.dsh/cache/dsh-token-panel   # 持久化目录（可选）
+    pollInterval: 1500          # live poll interval (ms)
+    pricePerMInput: 1           # uncached input price (CNY / 1M tokens)
+    pricePerMCacheRead: 0.02    # cache-hit price (CNY / 1M tokens)
+    pricePerMOutput: 2          # output price (CNY / 1M tokens)
+    # dataDir: ~/.dsh/cache/dsh-token-panel   # durable log directory (optional)
 ```
 
-| 键 | 默认 | 说明 |
+| Key | Default | Description |
 |---|---|---|
-| `pollInterval` | `1500` | 浏览器实时轮询间隔（毫秒） |
-| `pricePerMInput` | `1` | 每百万未命中输入 token 的估算价格（CNY，仅展示） |
-| `pricePerMCacheRead` | `0.02` | 每百万缓存命中 token 的估算价格（CNY，仅展示） |
-| `pricePerMOutput` | `2` | 每百万输出 token 的估算价格（CNY，仅展示） |
-| `dataDir` | `~/.dsh/cache/dsh-token-panel` | 持久化用量日志目录 |
+| `pollInterval` | `1500` | Browser live-poll interval (ms) |
+| `pricePerMInput` | `1` | Estimated price per 1M uncached input tokens (CNY, display only) |
+| `pricePerMCacheRead` | `0.02` | Estimated price per 1M cache-hit tokens (CNY, display only) |
+| `pricePerMOutput` | `2` | Estimated price per 1M output tokens (CNY, display only) |
+| `dataDir` | `~/.dsh/cache/dsh-token-panel` | Durable usage-log directory |
 
-> 默认价格对应 **deepseek-v4-flash** 当前官方价（缓存命中 ¥0.02 / 未命中 ¥1 / 输出 ¥2，每百万 token）。DeepSeek 自 2026-08-17 起改为峰谷定价（高峰 9-12、14-18 点），价格变动时同步更新上述三项即可。其他模型 / 供应商请按自己的计价调整。
+> Defaults match **deepseek-v4-flash** official pricing (cache hit ¥0.02 / miss ¥1 / output ¥2 per 1M tokens). DeepSeek moves to peak/off-peak pricing on 2026-08-17 (peak 9-12, 14-18 CST) — update the three price keys when your plan changes. Adjust freely for other models/providers.
 
 ---
 
-## 数据存储
+## Data Storage
 
-统计日志按天追加写入（每行一条用量增量，JSON）：
+Usage logs are appended per day (one JSON delta per line):
 
 ```
 ~/.dsh/cache/dsh-token-panel/
-├── usage-2026-08-14.jsonl   # 每日用量日志
-└── state.json               # 上次用量基线（重启续接，防重复/防丢失）
+├── usage-2026-08-14.jsonl   # daily usage logs
+└── state.json               # last-seen baselines (resume across restarts)
 ```
 
-记录维度：未命中输入、输出、缓存读、缓存写（增量）。首次观察到会话时写入完整基线，之后记录增量——**累计从真实起点算起，重启不丢不重**。
+Tracked buckets: uncached input, output, cache read, cache write (deltas). The first observation of a session writes a full baseline, then deltas follow — totals start from the true baseline and never double-count after a restart.
 
 ---
 
-## 工作原理
+## How It Works
 
-- **Host 面**（`src/index.ts`）：
-  - 聚合 `ctx.tokenMeter.measure()`（压力/表面积）+ `ctx.sessionProjections.snapshot()`（provider 实测用量/容量/构成）+ `ctx.sessionTitle.get()`（会话标题）
-  - 注册两条 HTTP 路由：`/plugins/dsh-token-panel/snapshot`（实时）、`/plugins/dsh-token-panel/stats`（持久化统计）
-  - 用量增量按天持久化（崩溃安全：tmp + rename 原子写）
-- **Client 面**（`src/client/`）：body portal 右下角面板，1.5s 轮询实时数据、10s 轮询统计，SVG 曲线 + 设计令牌配色
+- **Host side** (`src/index.ts`):
+  - Aggregates `ctx.tokenMeter.measure()` (pressure/surface), `ctx.sessionProjections.snapshot()` (provider usage/capacity/breakdown) and `ctx.sessionTitle.get()` (titles)
+  - Serves two HTTP routes: `/plugins/dsh-token-panel/snapshot` (live), `/plugins/dsh-token-panel/stats` (durable stats)
+  - Persists usage deltas per day (crash-safe: tmp + atomic rename)
+  - Filters out empty sessions (0 tokens)
+- **Client side** (`src/client/`): body-portal corner panel, 1.5s live poll + 10s stats poll, SVG curves, DSH design-token theming, **en/zh locale** following the DSH language setting, current-session tracking via `ctx.sessions.list`
 
 ---
 
-## 开发
+## Development
 
 ```sh
 pnpm install
 pnpm build            # tsc host + tsc client + tsdown
-pnpm verify           # 产物一致性检查（exports/patch/client bundle）
+pnpm verify           # artifact consistency (exports/patch/client bundle)
 ```
 
-### 发布新版本
+### Publishing a release
 
 ```sh
 pnpm build && pnpm verify
@@ -140,20 +150,23 @@ git push
 
 ---
 
-## 常见问题
+## FAQ
 
-**Q: 实时数字和统计数字怎么不一样？**
-A: 实时显示的是**当前上下文压力**（几十万级，k 单位）；统计显示的是**历史累计消耗**（含缓存读，上亿级，M 单位）。两个指标口径不同，面板已同时展示（压力 + ≈累计）。
+**Q: Why do the live and stats numbers differ?**
+A: Live shows **current context pressure** (tens of thousands — k units); stats show **cumulative historical usage** including cache reads (hundreds of millions — M units). Two different metrics; the panel shows both (pressure + ≈cumulative).
 
-**Q: 成本估算准吗？**
-A: 按 DeepSeek 官方价分级估算（缓存命中按 ¥0.02/M），仅作参考。权威账单请以 [DeepSeek 官网](https://platform.deepseek.com) 为准。
+**Q: How accurate is the cost estimate?**
+A: It applies official DeepSeek rates by bucket (cache hits at ¥0.02/1M). Display-only — always verify against the [DeepSeek platform](https://platform.deepseek.com).
 
-**Q: 曲线怎么只有最近几分钟？**
-A: 实时曲线是滚动内存窗口（600 点 ≈ 15 分钟），重启清零；统计视图的日/月曲线基于磁盘日志，长期保留。
+**Q: Why is the curve only the last few minutes?**
+A: Live curves are an in-memory rolling window (600 points ≈ 15 min) and reset on restart; the stats view's daily/monthly curves are backed by durable disk logs and persist.
+
+**Q: Some sessions are missing from the panel.**
+A: The panel follows your current conversation and hides empty (0-token) sessions. Historic sessions appear after clicking "Show all".
 
 ---
 
-## 许可
+## License
 
 [MIT](LICENSE)
 
