@@ -1783,21 +1783,22 @@ export function TokenHud({ t, sessionsList }: {
                   : view === 'live'
                     ? fill(t('pollLive'), { total: formatNumber(totals.total), out: formatNumber(totals.output) })
                     : t('pollStats')}
+              </span>
+              <span className={css.footSecond}>
+                {prices.mode !== undefined && (
+                  <span className={css.footPrice} data-mode={prices.mode}>
+                    {prices.mode === 'peak' ? t('pricePeak') : prices.mode === 'offpeak' ? t('priceOffpeak') : t('priceFlat')}
+                  </span>
+                )}
                 {tps > 0 && (
-                  <span className={css.footTps}> · {tps >= 10 ? Math.round(tps) : tps.toFixed(1)} t/s</span>
+                  <span className={css.footTps}>{tps >= 10 ? Math.round(tps) : tps.toFixed(1)} t/s</span>
                 )}
               </span>
-              {prices.mode !== undefined && (
-                <span className={css.footPrice} data-mode={prices.mode}>
-                  {prices.mode === 'peak' ? t('pricePeak') : prices.mode === 'offpeak' ? t('priceOffpeak') : t('priceFlat')}
-                </span>
-              )}
-              <span className={css.footCost}>{t('costNow')}</span>
-              <span className={css.footCost}><b>{formatCost(totalCostNow)}</b></span>
             </div>
             <div className={`${css.footCol} ${css.footRightCol}`}>
-              <span className={css.footDate}>{formatDateShort(snapshot.generatedAt)}</span>
-              <span className={css.mono}>{new Date(snapshot.generatedAt).toLocaleTimeString()}</span>
+              <span className={css.footCost}>{t('costNow')}</span>
+              <span className={css.footCost}><b>{formatCost(totalCostNow)}</b></span>
+              <span className={css.footDate}>{formatDateShort(snapshot.generatedAt)} {new Date(snapshot.generatedAt).toLocaleTimeString()}</span>
             </div>
           </footer>
         </aside>

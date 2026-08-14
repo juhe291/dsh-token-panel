@@ -750,7 +750,7 @@
   letter-spacing: 0.1em;
 }
 
-/* Two stacked rows per side: status/cost left, date/time right. */
+/* Two stacked rows per side: status / price+rate left, cost / value / date+time right. */
 .footCol {
   display: flex;
   flex-direction: column;
@@ -761,6 +761,12 @@
 .footRightCol {
   align-items: flex-end;
   text-align: right;
+}
+
+.footSecond {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .foot .mono {
