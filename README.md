@@ -14,6 +14,12 @@
 </div>
 
 <p align="center">
+  <img src="assets/hero.png" alt="dsh-token-panel 封面" width="100%">
+</p>
+
+> ℹ️ **封面声明**：上图是合成渲染的**示意图**（非真实截图），仅作宣传展示。真实界面请见下方截图。
+
+<p align="center">
   <img src="assets/screenshot.png" alt="dsh-token-panel 实时与统计视图" width="100%">
 </p>
 

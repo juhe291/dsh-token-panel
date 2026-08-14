@@ -14,6 +14,12 @@
 </div>
 
 <p align="center">
+  <img src="assets/hero.png" alt="dsh-token-panel cover" width="100%">
+</p>
+
+> ℹ️ **Cover note**: the banner above is a rendered **illustration** (not an actual screenshot), for promotional display only. Real UI: see the screenshot below.
+
+<p align="center">
   <img src="assets/screenshot.png" alt="dsh-token-panel live and stats views" width="100%">
 </p>
 
