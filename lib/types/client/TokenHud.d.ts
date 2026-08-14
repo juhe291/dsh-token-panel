@@ -116,6 +116,8 @@ export interface TokenHudLocale {
     readonly today: string;
     readonly yesterday: string;
     readonly thisMonth: string;
+    /** Month label template: '{y}' year, '{m}' month number. */
+    readonly monthFmt: string;
     /** Template: '{total}' and '{out}' are replaced with formatted numbers. */
     readonly pollLive: string;
     readonly pollStats: string;

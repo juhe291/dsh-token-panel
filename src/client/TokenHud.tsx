@@ -142,6 +142,8 @@ export interface TokenHudLocale {
   readonly today: string
   readonly yesterday: string
   readonly thisMonth: string
+  /** Month label template: '{y}' year, '{m}' month number. */
+  readonly monthFmt: string
   /** Template: '{total}' and '{out}' are replaced with formatted numbers. */
   readonly pollLive: string
   readonly pollStats: string
@@ -196,7 +198,7 @@ function monthLabel(month: string, t: Translate): string {
   const [y, m] = month.split('-')
   const now = new Date()
   if (Number(y) === now.getFullYear() && Number(m) === now.getMonth() + 1) return t('thisMonth')
-  return `${y}-${m}`
+  return fill(t('monthFmt'), { y: Number(y), m: Number(m) })
 }
 
 /** Estimate cost in CNY from usage buckets (cache hit priced separately). */
@@ -248,10 +250,16 @@ function filterRange(points: readonly HistoryPoint[], now: number, rangeMs: numb
   return points.filter((point) => point.t >= cutoff)
 }
 
-/** Format a timestamp for a date-scale axis (M/D). */
+/** Format a timestamp for a day-scale axis (M/D). */
 function formatDateTick(t: number): string {
   const date = new Date(t)
   return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
+/** Format a timestamp for a month-scale axis (locale-aware). */
+function formatMonthTick(t: number, translate: Translate): string {
+  const date = new Date(t)
+  return fill(translate('monthFmt'), { y: date.getFullYear(), m: date.getMonth() + 1 })
 }
 
 /**
@@ -485,7 +493,8 @@ function StatsView({ stats, t }: {
             <header className={css.statsSectionHead}>{t('byMonth')} · {t('all')}</header>
             {monthPoints.length >= 1 && (
               <div className={css.statsSparkWrap}>
-                <Sparkline points={monthPoints} now={Date.now()} height={64} tickFormat={formatDateTick} t={t} />
+                <Sparkline points={monthPoints} now={Date.now()} height={64}
+                  tickFormat={(value) => formatMonthTick(value, t)} t={t} />
               </div>
             )}
             {stats.months.map((month) => (
