@@ -2,6 +2,8 @@
 
 本文件记录 dsh-token-panel 的用户可见更新。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+**中文** ｜ [English](CHANGELOG.en.md)
+
 ## [0.3.0] - 2026-08-14
 
 ### 新增
