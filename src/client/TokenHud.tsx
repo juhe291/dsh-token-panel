@@ -1319,7 +1319,7 @@ export function TokenHud({ t, sessionsList }: {
       {open && (
         <aside className={css.panel} data-token-panel ref={panelRef}>
           <header className={css.head} {...dragHandlers} data-hud-handle data-hud-hint={t('hoverHint')}>
-            <span className={css.title} title={t('dragHint')}>
+            <span className={css.title}>
               <span className={css.titleMark} aria-hidden />{t('token')}
             </span>
             <div className={css.viewBar} role="group" aria-label={t('viewSwitch')}

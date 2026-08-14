@@ -38,13 +38,20 @@
   letter-spacing: 0.05em;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 140ms ease, transform 140ms ease;
   z-index: 40;
 }
 
+/* On hover the bubble fades in, stays ~1.5s, then fades out on its own —
+   it never lingers while the pointer keeps hovering. */
 [data-hud-handle]:hover::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  animation: hudHint 2s ease forwards;
+}
+
+@keyframes hudHint {
+  0% { opacity: 0; transform: translateX(-50%) translateY(2px); }
+  10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  70% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(0); }
 }
 
 /* Pill variant: bubble floats above the pill. */
