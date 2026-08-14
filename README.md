@@ -73,12 +73,27 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 
 ## 使用说明
 
-1. 点击右下角 **TOKEN 胶囊**（青色呼吸点 + 当前总压力）展开面板
-2. 面板头部「**实时 | 统计**」切换视图；「**✕**」收起面板
-3. 实时视图：点会话行展开详情与曲线；2m / 5m / 15m 切换曲线窗口
-4. 统计视图：「按日 / 按月」切换粒度，柱状列表 + 趋势曲线同屏
-5. 会话行主数字 = **当前上下文压力**（现在占着多少）；灰色 `≈` 小字 = **累计消耗**（历史总共用了多少，含缓存读）
-6. 面板跟随当前查看的对话；「展开全部」显示历史会话
+### 面板交互
+
+1. **打开/收起**：点击右下角 **TOKEN 胶囊**（青色呼吸点 + 压力 + 累计 + TPS）展开面板；点面板头部「**✕**」收起（同时把面板位置重置回右下角）
+2. **切换视图**：面板头部「**实时 | 统计**」切换
+3. **拖拽移动**：按住面板标题「TOKEN HUD」或胶囊拖动到任意位置，位置自动记忆（刷新不丢）
+4. **长按归位**：按住胶囊不动约 0.6 秒弹出菜单 →「↺ 回到右下角」恢复默认位置；「取消」关闭
+5. 三种手势互不干扰：**单击=打开、按住=菜单、拖动=移动**
+
+### 实时视图
+
+- 会话行主数字 = **当前上下文压力**（现在占着多少）；灰色 `≈` 小字 = **累计消耗**（历史总共用了多少，含缓存读）
+- 点会话行展开详情（输入/输出/缓存读/缓存写、压力/预计/容量、成本、占用进度条）与消耗曲线
+- 顶部曲线 + 会话曲线：**Y 轴自动刻度**（1/2/2.5/5×10ⁿ 取整 + 滞回，空闲时归零），X 轴时间刻度，最新点带虚线引导线和实时数值标签
+- 2m / 5m / 15m 切换曲线时间窗口
+- 面板跟随当前对话；「展开全部」显示历史会话（历史会话重启后仍保留）
+
+### 统计视图
+
+- 「按日 / 按月」切换粒度：全部日期/月份逐条展示（柱条 + token 数 + 估算成本）+ 趋势曲线
+- 顶部累计消耗 + 约 ¥ 成本；配置 `budgetMonthly` 后显示本月预算进度条（超支变红）；自动拉取 DeepSeek 账户余额
+- 数据按天持久化（JSONL），重启不丢
 
 ---
 
@@ -94,6 +109,14 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
     pricePerMInput: 1           # 未命中输入价格 (CNY / 百万 token)
     pricePerMCacheRead: 0.02    # 缓存命中价格 (CNY / 百万 token)
     pricePerMOutput: 2          # 输出价格 (CNY / 百万 token)
+    priceMode: flat             # flat = 固定价；peak-offpeak = 峰谷价
+    pricePeakInput: 3           # 高峰未命中输入价（priceMode=peak-offpeak 时）
+    pricePeakCacheRead: 0.1     # 高峰缓存命中价
+    pricePeakOutput: 9          # 高峰输出价
+    priceOffpeakInput: 1.5      # 空闲未命中输入价
+    priceOffpeakCacheRead: 0.05 # 空闲缓存命中价
+    priceOffpeakOutput: 4.5     # 空闲输出价
+    budgetMonthly: 0            # 月预算 (CNY)；0 = 关闭预算条
     # dataDir: ~/.dsh/cache/dsh-token-panel   # 持久化目录（可选）
 ```
 
@@ -103,9 +126,13 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 | `pricePerMInput` | `1` | 每百万未命中输入 token 的估算价格（CNY，仅展示） |
 | `pricePerMCacheRead` | `0.02` | 每百万缓存命中 token 的估算价格（CNY，仅展示） |
 | `pricePerMOutput` | `2` | 每百万输出 token 的估算价格（CNY，仅展示） |
+| `priceMode` | `flat` | 计价模式：`flat` 用上面三个固定价；`peak-offpeak` 按北京时间峰谷自动切换（高峰 9-12、14-18） |
+| `pricePeak*` | `3 / 0.1 / 9` | 高峰时段价格（`peak-offpeak` 模式） |
+| `priceOffpeak*` | `1.5 / 0.05 / 4.5` | 空闲时段价格（`peak-offpeak` 模式） |
+| `budgetMonthly` | `0` | 月预算（CNY），>0 时统计视图显示预算进度条，超支变红 |
 | `dataDir` | `~/.dsh/cache/dsh-token-panel` | 持久化用量日志目录 |
 
-> 默认价格对应 **deepseek-v4-flash** 当前官方价（缓存命中 ¥0.02 / 未命中 ¥1 / 输出 ¥2，每百万 token）。DeepSeek 自 2026-08-17 起改为峰谷定价（高峰 9-12、14-18 点），价格变动时同步更新上述三项即可。其他模型 / 供应商请按自己的计价调整。
+> 默认价格对应 **deepseek-v4-flash** 当前官方价（缓存命中 ¥0.02 / 未命中 ¥1 / 输出 ¥2，每百万 token）。DeepSeek 自 2026-08-17 起改为峰谷定价（高峰 9-12、14-18 点），届时把 `priceMode` 改为 `peak-offpeak` 即可（峰谷价已按官网预填默认值）。其他模型 / 供应商请按自己的计价调整。
 
 ---
 
