@@ -171,10 +171,11 @@ function MenuIcon({ d }: { readonly d: string }) {
 const ICON_BACK = 'M3 8h8M8.5 4.5 12 8l-3.5 3.5M13 3v10'
 const ICON_CROSSHAIR = 'M8 1.5v3m0 7v3M1.5 8h3m7 0h3M8 8l.01 0M8 5.8A2.2 2.2 0 1 0 8 10.2 2.2 2.2 0 0 0 8 5.8Z'
 const ICON_CORNER: Record<'tl' | 'tr' | 'bl' | 'br', string> = {
-  tl: 'M1.5 6V1.5H6M1.5 1.5 6 6',
-  tr: 'M10 1.5h4.5V6M14.5 1.5 10 6',
-  bl: 'M1.5 10v4.5H6M1.5 14.5 6 10',
-  br: 'M14.5 10v4.5H10M14.5 14.5 10 10',
+  // Pure L-brackets (no stray diagonals): the bracket points INTO the corner.
+  tl: 'M1.5 6V1.5H6',
+  tr: 'M10 1.5h4.5V6',
+  bl: 'M1.5 10v4.5H6',
+  br: 'M14.5 10v4.5H10',
 }
 
 /** Localized copy contract for the HUD (en/zh dictionaries in index.tsx). */
@@ -849,17 +850,21 @@ export function TokenHud({ t, sessionsList }: {
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const panelRef = useRef<HTMLElement | null>(null)
 
-  // When the panel opens at a dragged (left/top) position, nudge it back
-  // inside the viewport so it always renders fully.
+  // When the panel OPENS at a dragged (left/top) position, nudge it back
+  // inside the viewport once so it renders fully. Runs only on the open
+  // transition — dragging afterwards keeps the 48px overhang behavior.
   useLayoutEffect(() => {
-    if (!open || panelRef.current === null || position === null) return
+    if (!open || panelRef.current === null) return
     const rect = panelRef.current.getBoundingClientRect()
     const maxX = Math.max(8, window.innerWidth - rect.width - 8)
     const maxY = Math.max(8, window.innerHeight - rect.height - 8)
-    const x = Math.min(Math.max(position.x, 8), maxX)
-    const y = Math.min(Math.max(position.y, 8), maxY)
-    if (x !== position.x || y !== position.y) setPosition({ x, y })
-  }, [open, position])
+    setPosition((current) => {
+      if (current === null) return current
+      const x = Math.min(Math.max(current.x, 8), maxX)
+      const y = Math.min(Math.max(current.y, 8), maxY)
+      return x === current.x && y === current.y ? current : { x, y }
+    })
+  }, [open])
 
   // Close the long-press menu on any outside pointerdown.
   useEffect(() => {

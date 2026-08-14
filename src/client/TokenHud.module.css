@@ -19,10 +19,11 @@
   position: absolute;
   bottom: 46px;
   right: 0;
+  z-index: 30;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 128px;
+  min-width: 148px;
   padding: 4px;
   border: 1px solid color-mix(in srgb, var(--dsw-alias-line-strong) 58%, transparent);
   border-radius: 10px;
@@ -32,10 +33,18 @@
   animation: tokenPanelIn 120ms ease-out;
 }
 
+/* While the panel is expanded, the menu drops below the header instead of
+   floating above the pill — and stays above the panel surface. */
+.host:has(> .panel) .pressMenu {
+  bottom: auto;
+  top: 58px;
+}
+
 .toast {
   position: absolute;
   bottom: 46px;
   right: 0;
+  z-index: 30;
   max-width: 260px;
   padding: 8px 12px;
   border: 1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 40%, transparent);
@@ -48,6 +57,11 @@
   letter-spacing: 0.04em;
   animation: tokenPanelIn 120ms ease-out;
   pointer-events: none;
+}
+
+.host:has(> .panel) .toast {
+  bottom: auto;
+  top: 58px;
 }
 
 .pressMenuItem {
