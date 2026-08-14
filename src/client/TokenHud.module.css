@@ -245,6 +245,13 @@
   letter-spacing: 0.02em;
 }
 
+.sparkYTick {
+  fill: var(--dsw-alias-label-tertiary);
+  font-size: 8px;
+  font-family: var(--token-panel-mono);
+  letter-spacing: 0.02em;
+}
+
 .sparkEmpty {
   display: flex;
   align-items: center;

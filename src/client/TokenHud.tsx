@@ -311,18 +311,27 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
   readonly tickFormat?: (t: number) => string
   readonly t: Translate
 }) {
+  /** Left gutter reserved for the Y-axis value labels. */
+  const AXIS_W = 38
+  const plotW = width - AXIS_W
+
   const path = useMemo(() => {
     if (points.length === 0) return null
     // Single point: render a centered dot with its tick (curve needs 2+).
     if (points.length === 1) {
       const only = points[0]
       if (only === undefined) return null
+      const yTop = 6
+      const yBot = height - 14
       return {
         kind: 'dot' as const,
-        x: width / 2,
-        y: height / 2 - 6,
+        x: AXIS_W + plotW / 2,
+        y: yTop + (yBot - yTop) / 2,
         t: only.t,
-        ticks: [{ t: only.t, x: width / 2 }],
+        ticks: [{ t: only.t, x: AXIS_W + plotW / 2 }],
+        yMax: only.total > 0 ? only.total : 1,
+        yMid: only.total / 2,
+        yMin: 0,
       }
     }
     const max = Math.max(...points.map((point) => point.total), 1)
@@ -333,23 +342,35 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
     const tSpan = Math.max(t1 - t0, 1)
     // Reserve a 14px bottom band for tick labels so they never clip.
     const y = (value: number): number => height - 18 - ((value - min) / span) * (height - 28)
-    const x = (t: number): number => ((t - t0) / tSpan) * width
+    const x = (t: number): number => AXIS_W + ((t - t0) / tSpan) * plotW
     const coords = points.map((point) => [x(point.t), y(point.total)] as const)
     const line = coords.map(([xValue, yValue], index) =>
       `${index === 0 ? 'M' : 'L'}${xValue.toFixed(1)},${yValue.toFixed(1)}`).join(' ')
-    const area = `${line} L${width},${height - 14} L0,${height - 14} Z`
+    const area = `${line} L${width},${height - 14} L${AXIS_W},${height - 14} Z`
     const last = coords[coords.length - 1]
     if (last === undefined) return null
     const ticks = [0, 0.5, 1].map((fraction) => {
       const t = t0 + tSpan * fraction
       return { t, x: x(t) }
     })
-    return { kind: 'line' as const, line, area, last, ticks }
-  }, [points, width, height, now])
+    return {
+      kind: 'line' as const, line, area, last, ticks,
+      yMax: max,
+      yMid: (max + min) / 2,
+      yMin: min,
+    }
+  }, [points, width, height, now, plotW])
 
   if (path === null) {
     return <div className={css.sparkEmpty} style={{ width, height }}>{t('waiting')}</div>
   }
+
+  // Y-axis value labels (top/middle/bottom) + faint gridlines.
+  const yLabels = [
+    { value: path.yMax, y: 8 },
+    { value: path.yMid, y: (height - 14 + 8) / 2 },
+    { value: path.yMin, y: height - 16 },
+  ]
 
   return (
     <svg className={css.spark} viewBox={`0 0 ${width} ${height}`} width="100%" height={height}
@@ -360,12 +381,23 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
           <stop offset="100%" stopColor="var(--dsw-alias-state-business-primary)" stopOpacity="0.02" />
         </linearGradient>
       </defs>
+      {path.kind === 'line' && yLabels.map((label) => (
+        <line key={label.y} x1={AXIS_W} y1={label.y} x2={width} y2={label.y}
+          stroke="var(--dsw-alias-line-normal)" strokeWidth="1" vectorEffect="non-scaling-stroke" opacity="0.5" />
+      ))}
       {path.kind === 'line' && <path d={path.area} fill="url(#tokenSparkFill)" />}
       {path.kind === 'line' && <path d={path.line} fill="none" stroke="var(--dsw-alias-state-business-primary)"
         strokeWidth="1.6" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />}
       <circle cx={path.kind === 'line' ? path.last[0] : path.x} cy={path.kind === 'line' ? path.last[1] : path.y}
         r="3" fill="var(--dsw-alias-bg-module-platform)"
         stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1.6" />
+      {yLabels.map((label) => (
+        <text key={label.y} x={AXIS_W - 5} y={label.y + 3}
+          textAnchor="end"
+          className={css.sparkYTick}>
+          {formatNumber(label.value)}
+        </text>
+      ))}
       {path.ticks.map((tick) => (
         <text key={tick.t} x={tick.x} y={height - 5}
           textAnchor="middle"
