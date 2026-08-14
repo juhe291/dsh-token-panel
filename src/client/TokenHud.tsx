@@ -1257,7 +1257,6 @@ export function TokenHud({ t, sessionsList }: {
           <button
             type="button"
             className={css.pressMenuItem}
-            onPointerEnter={() => { setPressSubMenu(true) }}
             onClick={() => { setPressSubMenu((current) => !current) }}
             aria-expanded={pressSubMenu}
           >
