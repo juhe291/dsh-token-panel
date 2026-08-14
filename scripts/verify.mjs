@@ -39,10 +39,14 @@ check(!client.includes('/src/'), 'client bundle references src/ tree (should be 
 const patch = readFileSync(join(root, 'cordis.patch.yml'), 'utf8')
 check(patch.includes(pkg.name), 'cordis.patch.yml does not reference package name')
 
+// Docs.
+check(existsSync(join(root, 'README.md')), 'README.md missing')
+check(existsSync(join(root, 'README.en.md')), 'README.en.md missing')
+check(existsSync(join(root, 'LICENSE')), 'LICENSE missing')
+
 // Bundle manifest fields.
 check(pkg.dsh?.bundle?.patch === './cordis.patch.yml', 'dsh.bundle.patch mismatch')
 check(pkg.dsh?.client?.platform === 'web', 'dsh.client.platform must be web')
-check(existsSync(join(root, pkg.dsh.client.inject[0].replace(/\/client$/, ''), 'package.json')) === false, 'unexpected inject path check')
 
 if (failures.length > 0) {
   console.error('dsh-token-panel verify failed:')

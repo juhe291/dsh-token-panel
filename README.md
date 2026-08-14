@@ -2,6 +2,7 @@
 
 > 实时 Token 消耗 HUD 插件 —— 为 DeepSeek Harness 提供一个右下角常驻的 Token 仪表盘。
 > Real-time token consumption HUD for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): a corner dashboard with live session pressure, cumulative usage, history curves and per-day/per-month statistics.
+> **English: [README.en.md](README.en.md)**
 
 ![license](https://img.shields.io/badge/license-MIT-green) ![version](https://img.shields.io/badge/version-0.1.0-blue) ![platform](https://img.shields.io/badge/platform-web-cyan) [![topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-8A2BE2)](https://github.com/topics/dsh-plugin)
 

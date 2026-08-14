@@ -107,6 +107,61 @@ export interface PriceEstimate {
   readonly output: number
 }
 
+/** Localized copy contract for the HUD (en/zh dictionaries in index.tsx). */
+export interface TokenHudLocale {
+  readonly token: string
+  readonly live: string
+  readonly stats: string
+  readonly close: string
+  readonly byDay: string
+  readonly byMonth: string
+  readonly all: string
+  readonly totalLabel: string
+  readonly totalSub: string
+  readonly approx: string
+  readonly currentPressure: string
+  readonly cumulativeUsage: string
+  /** Template: '{count}' is replaced with the session count. */
+  readonly expandAll: string
+  readonly collapseAll: string
+  readonly noSessions: string
+  readonly waiting: string
+  readonly noStats: string
+  readonly noDaily: string
+  readonly noMonthly: string
+  readonly loading: string
+  readonly input: string
+  readonly output: string
+  readonly cacheRead: string
+  readonly cacheWrite: string
+  readonly pressure: string
+  readonly projected: string
+  readonly capacity: string
+  readonly cost: string
+  readonly today: string
+  readonly yesterday: string
+  readonly thisMonth: string
+  /** Template: '{total}' and '{out}' are replaced with formatted numbers. */
+  readonly pollLive: string
+  readonly pollStats: string
+  /** Template: '{error}' is replaced with the error message. */
+  readonly disconnected: string
+  readonly timeRange: string
+  readonly viewSwitch: string
+  readonly granularity: string
+  readonly openPanel: string
+  /** Template: '{pct}' is replaced with the percent number. */
+  readonly contextBar: string
+}
+
+type Translate = (key: keyof TokenHudLocale) => string
+
+/** Replace {name} placeholders in a localized template. */
+function fill(template: string, values: Readonly<Record<string, string | number>>): string {
+  return template.replace(/\{(\w+)\}/g, (match, name: string) =>
+    name in values ? String(values[name]) : match)
+}
+
 function formatNumber(value: number): string {
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`
@@ -123,21 +178,24 @@ function formatTime(t: number): string {
   return `${hh}:${mm}:${ss}`
 }
 
-/** Short Chinese date label for a YYYY-MM-DD key. */
-function dateLabel(date: string): string {
+/** Locale-aware date label for a YYYY-MM-DD key. */
+function dateLabel(date: string, t: Translate): string {
   const [y, m, d] = date.split('-')
   const now = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  if (date === today) return '今天'
-  return `${Number(m)}月${Number(d)}日`
+  const yesterdayTs = now.getTime() - 86_400_000
+  const yesterday = `${new Date(yesterdayTs).getFullYear()}-${String(new Date(yesterdayTs).getMonth() + 1).padStart(2, '0')}-${String(new Date(yesterdayTs).getDate()).padStart(2, '0')}`
+  if (date === today) return t('today')
+  if (date === yesterday) return t('yesterday')
+  return `${Number(m)}/${Number(d)}`
 }
 
-/** Month label for a YYYY-MM key. */
-function monthLabel(month: string): string {
+/** Locale-aware month label for a YYYY-MM key. */
+function monthLabel(month: string, t: Translate): string {
   const [y, m] = month.split('-')
   const now = new Date()
-  if (Number(y) === now.getFullYear() && Number(m) === now.getMonth() + 1) return '本月'
-  return `${y}年${Number(m)}月`
+  if (Number(y) === now.getFullYear() && Number(m) === now.getMonth() + 1) return t('thisMonth')
+  return `${y}-${m}`
 }
 
 /** Estimate cost in CNY from usage buckets (cache hit priced separately). */
@@ -200,12 +258,13 @@ function formatDateTick(t: number): string {
  * ticks on the bottom axis. Pass `tickFormat` for non-time scales (e.g.
  * daily/monthly stats).
  */
-function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatTime }: {
+function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatTime, t }: {
   readonly points: readonly HistoryPoint[]
   readonly now: number
   readonly width?: number
   readonly height?: number
   readonly tickFormat?: (t: number) => string
+  readonly t: Translate
 }) {
   const path = useMemo(() => {
     if (points.length < 2) return null
@@ -231,12 +290,12 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
   }, [points, width, height, now])
 
   if (path === null) {
-    return <div className={css.sparkEmpty} style={{ width, height }}>等待数据…</div>
+    return <div className={css.sparkEmpty} style={{ width, height }}>{t('waiting')}</div>
   }
 
   return (
     <svg className={css.spark} viewBox={`0 0 ${width} ${height}`} width="100%" height={height}
-      preserveAspectRatio="none" role="img" aria-label="token 消耗曲线">
+      preserveAspectRatio="none" role="img" aria-label={t('token')}>
       <defs>
         <linearGradient id="tokenSparkFill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--dsw-alias-state-business-primary)" stopOpacity="0.32" />
@@ -261,12 +320,13 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
 }
 
 /** Collapsed pill shown when the panel is closed. */
-function CollapsedChip({ total, onClick }: {
+function CollapsedChip({ total, onClick, t }: {
   readonly total: number
   readonly onClick: () => void
+  readonly t: Translate
 }) {
   return (
-    <button type="button" className={css.chip} onClick={onClick} aria-label="打开 Token 面板">
+    <button type="button" className={css.chip} onClick={onClick} aria-label={t('openPanel')}>
       <span className={css.chipDot} aria-hidden />
       <span className={css.chipLabel}>TOKEN</span>
       <span className={css.chipValue}>{formatNumber(total)}</span>
@@ -275,11 +335,12 @@ function CollapsedChip({ total, onClick }: {
 }
 
 /** One session row inside the live view. */
-function SessionRow({ row, prices, rangeMs, now }: {
+function SessionRow({ row, prices, rangeMs, now, t }: {
   readonly row: SessionTokenRow
   readonly prices: PriceEstimate
   readonly rangeMs: number
   readonly now: number
+  readonly t: Translate
 }) {
   const [open, setOpen] = useState(false)
   const usage = row.usage
@@ -307,30 +368,30 @@ function SessionRow({ row, prices, rangeMs, now }: {
           )}
         </span>
         <span className={css.rowTokensWrap}>
-          <span className={css.rowTokens} title="当前上下文压力">{formatNumber(row.totalTokens)}</span>
+          <span className={css.rowTokens} title={t('currentPressure')}>{formatNumber(row.totalTokens)}</span>
           {cumulative !== undefined && (
-            <span className={css.rowCumulative} title="累计消耗">≈{formatNumber(cumulative)}</span>
+            <span className={css.rowCumulative} title={t('cumulativeUsage')}>{t('approx')}{formatNumber(cumulative)}</span>
           )}
         </span>
         <span className={css.rowPulse} data-live={row.live} aria-hidden />
       </button>
       {open && (
         <div className={css.rowDetail}>
-          {history.length >= 2 && <Sparkline points={history} now={now} />}
+          {history.length >= 2 && <Sparkline points={history} now={now} t={t} />}
           <div className={css.detailLine}>
-            <span className={css.detailItem}><span className={css.detailLabel}>输入</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.uncachedInputTokens)}</span></span>
-            <span className={css.detailItem}><span className={css.detailLabel}>输出</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.outputTokens)}</span></span>
-            <span className={css.detailItem}><span className={css.detailLabel}>缓存读</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.cacheReadTokens)}</span></span>
-            <span className={css.detailItem}><span className={css.detailLabel}>缓存写</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.cacheWriteTokens)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>{t('input')}</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.uncachedInputTokens)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>{t('output')}</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.outputTokens)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>{t('cacheRead')}</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.cacheReadTokens)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>{t('cacheWrite')}</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.cacheWriteTokens)}</span></span>
           </div>
           <div className={css.detailLine}>
-            <span className={css.detailItem}><span className={css.detailLabel}>压力</span><span className={css.mono}>{row.pressureTokens === undefined ? '—' : formatNumber(row.pressureTokens)}</span></span>
-            <span className={css.detailItem}><span className={css.detailLabel}>预计</span><span className={css.mono}>{row.projectedTokens === undefined ? '—' : formatNumber(row.projectedTokens)}</span></span>
-            <span className={css.detailItem}><span className={css.detailLabel}>容量</span><span className={css.mono}>{row.contextWindow === undefined ? '—' : formatNumber(row.contextWindow)}</span></span>
-            <span className={css.detailItem}><span className={css.detailLabel}>成本</span><span className={css.mono}>{formatCost(cost)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>{t('pressure')}</span><span className={css.mono}>{row.pressureTokens === undefined ? '—' : formatNumber(row.pressureTokens)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>{t('projected')}</span><span className={css.mono}>{row.projectedTokens === undefined ? '—' : formatNumber(row.projectedTokens)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>{t('capacity')}</span><span className={css.mono}>{row.contextWindow === undefined ? '—' : formatNumber(row.contextWindow)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>{t('cost')}</span><span className={css.mono}>{formatCost(cost)}</span></span>
           </div>
           {used !== undefined && (
-            <div className={css.barTrack} aria-label={`上下文占用 ${used.toFixed(0)}%`}>
+            <div className={css.barTrack} aria-label={fill(t('contextBar'), { pct: used.toFixed(0) })}>
               <span className={css.barFill} style={{ width: `${used}%` }} data-hot={used > 85} />
             </div>
           )}
@@ -365,13 +426,14 @@ function StatBar({ label, value, max, input, output, cacheRead, cacheWrite, cost
 }
 
 /** The stats view: per-month and per-day usage bars, switched separately. */
-function StatsView({ stats }: {
+function StatsView({ stats, t }: {
   readonly stats: TokenStats | null
+  readonly t: Translate
 }) {
   const [subView, setSubView] = useState<'days' | 'months'>('days')
 
   if (stats === null) {
-    return <span className={css.empty}>统计数据加载中…</span>
+    return <span className={css.empty}>{t('loading')}</span>
   }
   const prices = stats.prices ?? { input: 1, cacheRead: 0.02, output: 2 }
   const maxMonth = Math.max(...stats.months.map((month) => month.total), 1)
@@ -394,62 +456,64 @@ function StatsView({ stats }: {
   return (
     <div className={css.statsBody}>
       <div className={css.statsTotal}>
-        <span className={css.statsTotalLabel}>累计消耗</span>
+        <span className={css.statsTotalLabel}>{t('totalLabel')}</span>
         <span className={css.mono}>{formatNumber(totalAll)}</span>
-        <span className={css.statsTotalSub}>token · 约 {formatCost(totalCost)}</span>
+        <span className={css.statsTotalSub}>{t('totalSub')} · {t('approx')}{formatCost(totalCost)}</span>
       </div>
       {hasData && (
-        <div className={css.viewBar} role="group" aria-label="统计粒度">
-          <button type="button" className={css.viewButton} data-active={subView === 'days'} onClick={() => { setSubView('days') }}>按日</button>
-          <button type="button" className={css.viewButton} data-active={subView === 'months'} onClick={() => { setSubView('months') }}>按月</button>
+        <div className={css.viewBar} role="group" aria-label={t('granularity')}>
+          <button type="button" className={css.viewButton} data-active={subView === 'days'} onClick={() => { setSubView('days') }}>{t('byDay')}</button>
+          <button type="button" className={css.viewButton} data-active={subView === 'months'} onClick={() => { setSubView('months') }}>{t('byMonth')}</button>
         </div>
       )}
       {subView === 'months' ? (
         stats.months.length > 0 ? (
           <section className={css.statsSection}>
-            <header className={css.statsSectionHead}>按月 · 全部</header>
+            <header className={css.statsSectionHead}>{t('byMonth')} · {t('all')}</header>
             {monthPoints.length >= 2 && (
               <div className={css.statsSparkWrap}>
-                <Sparkline points={monthPoints} now={Date.now()} height={64} tickFormat={formatDateTick} />
+                <Sparkline points={monthPoints} now={Date.now()} height={64} tickFormat={formatDateTick} t={t} />
               </div>
             )}
             {stats.months.map((month) => (
-              <StatBar key={month.month} label={monthLabel(month.month)} value={month.total} max={maxMonth}
+              <StatBar key={month.month} label={monthLabel(month.month, t)} value={month.total} max={maxMonth}
                 input={month.input} output={month.output} cacheRead={month.cacheRead} cacheWrite={month.cacheWrite}
                 cost={estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, prices)} />
             ))}
           </section>
         ) : (
-          <span className={css.empty}>暂无按月数据</span>
+          <span className={css.empty}>{t('noMonthly')}</span>
         )
       ) : (
         stats.days.length > 0 ? (
           <section className={css.statsSection}>
-            <header className={css.statsSectionHead}>按日 · 全部</header>
+            <header className={css.statsSectionHead}>{t('byDay')} · {t('all')}</header>
             {dayPoints.length >= 2 && (
               <div className={css.statsSparkWrap}>
-                <Sparkline points={dayPoints} now={Date.now()} height={64} tickFormat={formatDateTick} />
+                <Sparkline points={dayPoints} now={Date.now()} height={64} tickFormat={formatDateTick} t={t} />
               </div>
             )}
             {stats.days.map((day) => (
-              <StatBar key={day.date} label={dateLabel(day.date)} value={day.total} max={maxDay}
+              <StatBar key={day.date} label={dateLabel(day.date, t)} value={day.total} max={maxDay}
                 input={day.input} output={day.output} cacheRead={day.cacheRead} cacheWrite={day.cacheWrite}
                 cost={estimateCost(day.input, day.cacheRead, day.cacheWrite, day.output, prices)} />
             ))}
           </section>
         ) : (
-          <span className={css.empty}>暂无按日数据</span>
+          <span className={css.empty}>{t('noDaily')}</span>
         )
       )}
       {!hasData && (
-        <span className={css.empty}>暂无统计数据（使用会话后自动记录）</span>
+        <span className={css.empty}>{t('noStats')}</span>
       )}
     </div>
   )
 }
 
 /** The top-level HUD: polling, view switching and layout. */
-export function TokenHud(): JSX.Element {
+export function TokenHud({ t }: {
+  readonly t: Translate
+}): JSX.Element {
   const [snapshot, setSnapshot] = useState<TokenSnapshot | null>(null)
   const [stats, setStats] = useState<TokenStats | null>(null)
   const [view, setView] = useState<'live' | 'stats'>('live')
@@ -530,29 +594,29 @@ export function TokenHud(): JSX.Element {
   if (snapshot === null) {
     return (
       <div className={css.host}>
-        <CollapsedChip total={0} onClick={() => { setOpen(true) }} />
+        <CollapsedChip total={0} onClick={() => { setOpen(true) }} t={t} />
       </div>
     )
   }
 
   return (
     <div className={css.host}>
-      {!open && <CollapsedChip total={totals.total} onClick={() => { setOpen(true) }} />}
+      {!open && <CollapsedChip total={totals.total} onClick={() => { setOpen(true) }} t={t} />}
       {open && (
         <aside className={css.panel} data-token-panel>
           <header className={css.head}>
             <span className={css.title}>
-              <span className={css.titleMark} aria-hidden />TOKEN&nbsp;HUD
+              <span className={css.titleMark} aria-hidden />{t('token')}
             </span>
-            <div className={css.viewBar} role="group" aria-label="视图切换">
-              <button type="button" className={css.viewButton} data-active={view === 'live'} onClick={() => { setView('live') }}>实时</button>
-              <button type="button" className={css.viewButton} data-active={view === 'stats'} onClick={() => { setView('stats') }}>统计</button>
+            <div className={css.viewBar} role="group" aria-label={t('viewSwitch')}>
+              <button type="button" className={css.viewButton} data-active={view === 'live'} onClick={() => { setView('live') }}>{t('live')}</button>
+              <button type="button" className={css.viewButton} data-active={view === 'stats'} onClick={() => { setView('stats') }}>{t('stats')}</button>
             </div>
             <button
               type="button"
               className={css.closeButton}
               onClick={() => { setOpen(false) }}
-              aria-label="收起"
+              aria-label={t('close')}
             >
               ✕
             </button>
@@ -561,7 +625,7 @@ export function TokenHud(): JSX.Element {
             <>
               {topHistory.length >= 2 && (
                 <div className={css.sparkWrap}>
-                  <div className={css.rangeBar} role="group" aria-label="时间范围">
+                  <div className={css.rangeBar} role="group" aria-label={t('timeRange')}>
                     {RANGES.map((range) => (
                       <button
                         key={range.label}
@@ -574,40 +638,40 @@ export function TokenHud(): JSX.Element {
                       </button>
                     ))}
                   </div>
-                  <Sparkline points={topHistory} now={now} />
+                  <Sparkline points={topHistory} now={now} t={t} />
                 </div>
               )}
               <div className={css.body}>
                 {snapshot.sessions.length === 0 && (
-                  <span className={css.empty}>无活动会话</span>
+                  <span className={css.empty}>{t('noSessions')}</span>
                 )}
                 {snapshot.sessions.slice(0, showAll ? undefined : 3).map((row) => (
-                  <SessionRow key={row.sessionId} row={row} prices={prices} rangeMs={rangeMs} now={now} />
+                  <SessionRow key={row.sessionId} row={row} prices={prices} rangeMs={rangeMs} now={now} t={t} />
                 ))}
                 {!showAll && snapshot.sessions.length > 3 && (
                   <button type="button" className={css.moreButton} onClick={() => { setShowAll(true) }}>
-                    展开全部 {snapshot.sessions.length} 个会话
+                    {fill(t('expandAll'), { count: snapshot.sessions.length })}
                   </button>
                 )}
                 {showAll && snapshot.sessions.length > 3 && (
                   <button type="button" className={css.moreButton} onClick={() => { setShowAll(false) }}>
-                    收起，只看前 3 个
+                    {t('collapseAll')}
                   </button>
                 )}
               </div>
             </>
           ) : (
             <div className={css.body}>
-              <StatsView stats={stats} />
+              <StatsView stats={stats} t={t} />
             </div>
           )}
           <footer className={css.foot}>
             <span className={css.footHint}>
               {error !== null
-                ? `连接中断 · ${error}`
+                ? fill(t('disconnected'), { error })
                 : view === 'live'
-                  ? `实时 TOTAL ${formatNumber(totals.total)} · OUT ${formatNumber(totals.output)}`
-                  : '按日按月统计'}
+                  ? fill(t('pollLive'), { total: formatNumber(totals.total), out: formatNumber(totals.output) })
+                  : t('pollStats')}
             </span>
             <span className={css.mono}>{new Date(snapshot.generatedAt).toLocaleTimeString()}</span>
           </footer>
