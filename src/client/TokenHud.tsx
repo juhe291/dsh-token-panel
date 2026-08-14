@@ -177,6 +177,8 @@ export interface TokenHudLocale {
   readonly viewSwitch: string
   readonly granularity: string
   readonly openPanel: string
+  /** Tooltip hint for the draggable title bar. */
+  readonly dragHint: string
   /** Template: '{pct}' is replaced with the percent number. */
   readonly contextBar: string
 }
@@ -722,7 +724,7 @@ export function TokenHud({ t, sessionsList }: {
       return null
     }
   })
-  const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null)
+  const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null)
 
   const onDragStart = (event: React.PointerEvent<HTMLElement>): void => {
     // Anchor on the element's current on-screen position, not (0,0) —
@@ -733,20 +735,29 @@ export function TokenHud({ t, sessionsList }: {
       startY: event.clientY,
       baseX: position?.x ?? rect.left,
       baseY: position?.y ?? rect.top,
+      moved: false,
     }
   }
   const onDragMove = (event: React.PointerEvent<HTMLElement>): void => {
     const drag = dragState.current
     if (drag === null) return
+    const dx = event.clientX - drag.startX
+    const dy = event.clientY - drag.startY
+    // Ignore jitter: only move after a 4px threshold, so plain clicks on
+    // the title never nudge the panel.
+    if (!drag.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+    drag.moved = true
     setPosition({
-      x: drag.baseX + (event.clientX - drag.startX),
-      y: drag.baseY + (event.clientY - drag.startY),
+      x: drag.baseX + dx,
+      y: drag.baseY + dy,
     })
   }
   const onDragEnd = (): void => {
     const drag = dragState.current
     if (drag === null) return
+    const moved = drag.moved
     dragState.current = null
+    if (!moved) return
     try {
       window.localStorage.setItem('dsh-token-panel-pos', JSON.stringify(position))
     } catch {
@@ -900,16 +911,17 @@ export function TokenHud({ t, sessionsList }: {
       {!open && (
         <div {...dragHandlers} style={{ cursor: 'grab' }}>
           <CollapsedChip total={totals.total} cumulative={totals.cumulative} tps={tps}
-            onClick={() => { setOpen(true) }} t={t} />
+            onClick={() => { if (dragState.current === null) setOpen(true) }} t={t} />
         </div>
       )}
       {open && (
         <aside className={css.panel} data-token-panel>
-          <header className={css.head} {...dragHandlers}>
-            <span className={css.title}>
+          <header className={css.head}>
+            <span className={css.title} {...dragHandlers} title={t('dragHint')}>
               <span className={css.titleMark} aria-hidden />{t('token')}
             </span>
-            <div className={css.viewBar} role="group" aria-label={t('viewSwitch')}>
+            <div className={css.viewBar} role="group" aria-label={t('viewSwitch')}
+              onPointerDown={(event) => { event.stopPropagation() }}>
               <button type="button" className={css.viewButton} data-active={view === 'live'} onClick={() => { setView('live') }}>{t('live')}</button>
               <button type="button" className={css.viewButton} data-active={view === 'stats'} onClick={() => { setView('stats') }}>{t('stats')}</button>
             </div>
@@ -917,6 +929,7 @@ export function TokenHud({ t, sessionsList }: {
               type="button"
               className={css.closeButton}
               onClick={() => { resetPosition(); setOpen(false) }}
+              onPointerDown={(event) => { event.stopPropagation() }}
               aria-label={t('close')}
             >
               ✕

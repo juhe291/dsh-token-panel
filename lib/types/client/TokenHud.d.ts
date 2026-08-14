@@ -147,6 +147,8 @@ export interface TokenHudLocale {
     readonly viewSwitch: string;
     readonly granularity: string;
     readonly openPanel: string;
+    /** Tooltip hint for the draggable title bar. */
+    readonly dragHint: string;
     /** Template: '{pct}' is replaced with the percent number. */
     readonly contextBar: string;
 }
