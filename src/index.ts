@@ -145,6 +145,8 @@ export interface SessionTokenSnapshot {
   readonly live: boolean
   /** Model id this session's requests use (drives per-model pricing). */
   readonly model?: string
+  /** Per-model token buckets accumulated across the durable logs. */
+  readonly modelUsage?: Record<string, UsageBucket>
   /** Title hint: the session title when available, else the id tail. */
   readonly label: string
   /** Session title text when the title service has one. */
@@ -307,6 +309,8 @@ export class TokenPanelService extends Service {
   private readonly history = new Map<string, HistoryPoint[]>()
   private readonly lastUsage = new Map<string, LastUsage>()
   private readonly knownSessions = new Map<string, KnownSession>()
+  /** Per-session per-model token buckets (rebuilt from logs on restart). */
+  private readonly sessionModelUsage = new Map<string, Map<string, { i: number; o: number; cr: number; cw: number }>>()
   private lastSampleAt = 0
   private readonly dataDir: string
   private lastTpsOutput = 0
@@ -321,6 +325,45 @@ export class TokenPanelService extends Service {
       : defaultDataDir()
     this.loadState()
     this.loadKnownSessions()
+    this.rebuildSessionModelUsage()
+  }
+
+  /** Rebuild per-session per-model buckets by replaying the usage logs. */
+  private rebuildSessionModelUsage(): void {
+    if (!existsSync(this.dataDir)) return
+    try {
+      for (const entry of readdirSync(this.dataDir)) {
+        if (!/^usage-\d{4}-\d{2}-\d{2}\.jsonl$/.test(entry)) continue
+        for (const line of readFileSync(join(this.dataDir, entry), 'utf8').split('\n')) {
+          if (line === '') continue
+          try {
+            const delta = JSON.parse(line) as UsageDeltaLine
+            if (typeof delta.i !== 'number' || typeof delta.o !== 'number') continue
+            this.addModelUsage(delta.s, delta.m, delta.i, delta.o, delta.cr, delta.cw)
+          } catch {
+            // Torn or foreign line: skip.
+          }
+        }
+      }
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`token-panel: session model usage rebuild failed: ${String(error)}`)
+    }
+  }
+
+  /** Accumulate a delta into the per-session per-model bucket map. */
+  private addModelUsage(sessionTail: string, model: string, i: number, o: number, cr: number, cw: number): void {
+    let byModel = this.sessionModelUsage.get(sessionTail)
+    if (byModel === undefined) {
+      byModel = new Map()
+      this.sessionModelUsage.set(sessionTail, byModel)
+    }
+    const key = typeof model === 'string' && model !== '' ? model : 'unknown'
+    const bucket = byModel.get(key) ?? { i: 0, o: 0, cr: 0, cw: 0 }
+    bucket.i += i
+    bucket.o += o
+    bucket.cr += cr
+    bucket.cw += cw
+    byModel.set(key, bucket)
   }
 
   /** Restore previously-seen session snapshots from known-sessions.json. */
@@ -476,6 +519,7 @@ export class TokenPanelService extends Service {
         cr: usage.cacheReadTokens,
         cw: usage.cacheWriteTokens,
       } satisfies UsageDeltaLine)}\n`)
+      this.addModelUsage(id.slice(-8), model, usage.uncachedInputTokens, usage.outputTokens, usage.cacheReadTokens, usage.cacheWriteTokens)
       this.lastUsage.set(id, {
         input: usage.uncachedInputTokens,
         output: usage.outputTokens,
@@ -503,6 +547,7 @@ export class TokenPanelService extends Service {
     if (delta.i === 0 && delta.o === 0 && delta.cr === 0 && delta.cw === 0) return
     if (!existsSync(this.dataDir)) mkdirSync(this.dataDir, { recursive: true })
     appendFileSync(join(this.dataDir, `usage-${dayKey(now)}.jsonl`), `${JSON.stringify(delta)}\n`)
+    this.addModelUsage(id.slice(-8), model, delta.i, delta.o, delta.cr, delta.cw)
     this.saveState()
   }
 
@@ -579,6 +624,10 @@ export class TokenPanelService extends Service {
         sessionId: id,
         live: true,
         model: agent.options.model,
+        ...(this.sessionModelUsage.has(id.slice(-8))
+          ? { modelUsage: Object.fromEntries([...this.sessionModelUsage.get(id.slice(-8))!.entries()].map(([model, bucket]) =>
+            [model, { i: bucket.i, o: bucket.o, cr: bucket.cr, cw: bucket.cw }])) }
+          : {}),
         label: title !== undefined && title !== '' ? title : id.slice(-8),
         ...(title !== undefined && title !== '' ? { title } : {}),
         totalTokens,

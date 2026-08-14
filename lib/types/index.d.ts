@@ -82,6 +82,8 @@ export interface SessionTokenSnapshot {
     readonly live: boolean;
     /** Model id this session's requests use (drives per-model pricing). */
     readonly model?: string;
+    /** Per-model token buckets accumulated across the durable logs. */
+    readonly modelUsage?: Record<string, UsageBucket>;
     /** Title hint: the session title when available, else the id tail. */
     readonly label: string;
     /** Session title text when the title service has one. */
@@ -184,6 +186,8 @@ export declare class TokenPanelService extends Service {
     private readonly history;
     private readonly lastUsage;
     private readonly knownSessions;
+    /** Per-session per-model token buckets (rebuilt from logs on restart). */
+    private readonly sessionModelUsage;
     private lastSampleAt;
     private readonly dataDir;
     private lastTpsOutput;
@@ -191,6 +195,10 @@ export declare class TokenPanelService extends Service {
     private cachedBalance;
     private balanceInFlight;
     constructor(ctx: Context, config: Config);
+    /** Rebuild per-session per-model buckets by replaying the usage logs. */
+    private rebuildSessionModelUsage;
+    /** Accumulate a delta into the per-session per-model bucket map. */
+    private addModelUsage;
     /** Restore previously-seen session snapshots from known-sessions.json. */
     private loadKnownSessions;
     /** Persist the known-session registry atomically (tmp + rename). */

@@ -21,6 +21,8 @@ export interface SessionTokenRow {
     readonly live: boolean;
     /** Model id this session's requests use (drives per-model pricing). */
     readonly model?: string;
+    /** Per-model token buckets accumulated across the durable logs. */
+    readonly modelUsage?: Record<string, PriceUsageBucket>;
     /** Display label: session title when available, else the id tail. */
     readonly label: string;
     /** Session title text when the title service has one. */

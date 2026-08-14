@@ -43,6 +43,8 @@ export interface SessionTokenRow {
   readonly live: boolean
   /** Model id this session's requests use (drives per-model pricing). */
   readonly model?: string
+  /** Per-model token buckets accumulated across the durable logs. */
+  readonly modelUsage?: Record<string, PriceUsageBucket>
   /** Display label: session title when available, else the id tail. */
   readonly label: string
   /** Session title text when the title service has one. */
@@ -429,8 +431,19 @@ function fallbackTier(prices: PriceEstimate): PriceTier {
   return { hit: prices.cacheRead, miss: prices.input, output: prices.output }
 }
 
-/** Session cost: pick the session's model tier when available. */
+/** Session cost: sum the per-model log buckets when available (accurate for
+ *  sessions that switched models), else price the raw usage by the current
+ *  session model tier. */
 function estimateRowCost(row: SessionTokenRow, prices: PriceEstimate, modelPrices?: Record<string, PriceTier>): number {
+  const modelUsage = row.modelUsage
+  if (modelUsage !== undefined && Object.keys(modelUsage).length > 0) {
+    let total = 0
+    for (const [model, bucket] of Object.entries(modelUsage)) {
+      const tier = modelPrices?.[model] ?? fallbackTier(prices)
+      total += estimateTierCost(bucket.i, bucket.cr, bucket.cw, bucket.o, tier)
+    }
+    return total
+  }
   const usage = row.usage
   if (usage === undefined) return 0
   const tier = (row.model !== undefined && modelPrices?.[row.model] !== undefined)
@@ -961,11 +974,11 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
           <div className={css.statsSparkWrap}>
             {subView === 'months'
               ? (monthPoints.length >= 1 && (
-                <Sparkline points={monthPoints} now={Date.now()} height={78}
+                <Sparkline points={monthPoints} now={Date.now()} height={88}
                   tickFormat={(value) => formatMonthTick(value, t)} t={t} />
               ))
               : (dayPoints.length >= 1 && (
-                <Sparkline points={dayPoints} now={Date.now()} height={78} tickFormat={formatDateTick} t={t} />
+                <Sparkline points={dayPoints} now={Date.now()} height={88} tickFormat={formatDateTick} t={t} />
               ))}
           </div>
           {listCount > 0 && (
