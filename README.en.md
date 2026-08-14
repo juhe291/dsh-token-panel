@@ -3,18 +3,18 @@
 # dsh-token-panel
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
 [![Platform](https://img.shields.io/badge/platform-web-cyan?style=flat-square)](https://github.com/juhe291/dsh-token-panel)
 [![Topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-8A2BE2?style=flat-square)](https://github.com/topics/dsh-plugin)
 
-**Real-time token consumption HUD for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — live session pressure, cumulative usage, history curves, and per-day/per-month statistics, in a corner dashboard that follows your current conversation.**
+**Real-time token consumption HUD for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — live session pressure, per-session cost, history curves, and per-day/per-month statistics, in a draggable corner dashboard that follows your current conversation.**
 
 🌐 [**中文**](README.md) ｜ **English**
 
 </div>
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="dsh-token-panel UI preview" width="520">
+  <img src="assets/screenshot.png" alt="dsh-token-panel live view" width="520">
 </p>
 
 ---
@@ -27,26 +27,32 @@ A compact pill in the bottom-right corner shows the total token pressure in real
 
 | Feature | Description |
 |---|---|
-| Session list | One row per session: **title + current context pressure + cumulative usage**; titles come from the DSH session-title service |
+| Session list | One row per session: **title + current context pressure + cumulative usage + session cost**; titles come from the DSH session-title service |
 | Session details | Click a row: input / output / cache-read / cache-write, pressure / projected / capacity, estimated cost, context-usage progress bar (turns red above 85%) |
-| Live curves | Per-session SVG area chart with real time ticks (HH:MM:SS) and **2m / 5m / 15m** range switching |
-| Follows current session | Only the open conversation is shown by default; historic sessions collapse behind "Show all" — never crowded |
+| Live curves | Per-session SVG area chart with auto-scaling Y axis (1/2/2.5/5×10ⁿ rounding + hysteresis, zero when idle), gridlines, dashed leader with live value pill, and **2m / 5m / 15m** range switching |
+| Follows current session | Only the open conversation is shown by default; historic sessions collapse behind "Show all" (survive restarts) |
 | Empty-session filter | Fresh conversations with 0 tokens are hidden entirely |
+| TPS | Generation speed (t/s) shown on the pill and the footer |
 
 ### 📊 Stats View
 
 | Feature | Description |
 |---|---|
 | Daily / Monthly | Independent tabs listing every day / month with bars, token counts and estimated cost |
-| Trend curves | SVG curves over days / months with M/D date ticks |
+| Trend curves | SVG curves over days / months with M/D date ticks and Y-axis labels |
 | Cumulative total | Total tokens consumed plus the ≈¥ estimated cost |
+| Budget & balance | Monthly budget bar when `budgetMonthly` is set (red over budget); auto-fetched DeepSeek account balance |
 | Durable | Usage is written to per-day JSONL logs on disk — **survives restarts** |
 
-> ⚠️ **Number scale note**: the stats view's "Daily / Monthly" figures are **cumulative historical consumption** (input + output + **cache reads** summed); cache reads usually dominate, so a single day can reach hundreds of millions of tokens (displayed with the M suffix). The live view, by contrast, shows **current context pressure** (tokens in context right now, typically tens of thousands — k suffix). **These are two different quantities**; seeing "live 400k / stats 100M" is expected, not a bug. The `≈` number on a session row is that session's cumulative consumption, matching the stats-view scale.
+<p align="center">
+  <img src="assets/screenshot-stats.png" alt="dsh-token-panel stats view" width="520">
+</p>
+
+> ⚠️ **Number scale note**: the stats view's "Daily / Monthly" figures are **cumulative historical consumption** (input + output + **cache reads** summed); cache reads usually dominate, so a single day can reach hundreds of millions of tokens (displayed with the M suffix). The live view, by contrast, shows **current context pressure** (tokens in context right now, typically tens of thousands — k suffix). **These are two different quantities**; seeing "live 400k / stats 100M" is expected, not a bug. The `≈` number on a session row is that session's cumulative consumption, and the `¥` figure is its estimated cost — both matching the stats-view scale.
 
 ### 💰 Cost Estimation
 
-Priced with the **official DeepSeek rates** (CNY per 1M tokens), billing cache hits, uncached input and output separately. Display-only — the provider dashboard is authoritative.
+Priced with the **official DeepSeek rates** (CNY per 1M tokens), billing cache hits, uncached input and output separately. Display-only — the provider dashboard is authoritative. Peak/off-peak pricing supported (see Configuration).
 
 ---
 
@@ -72,19 +78,33 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 
 ## Usage
 
-### Panel interactions
+### Panel interactions (three gestures, zero conflicts)
 
-1. **Open/collapse**: click the **TOKEN pill** (cyan pulsing dot + pressure + cumulative + TPS) to expand the panel; **✕** collapses it (and resets the position to the bottom-right corner)
-2. **Switch views**: **Live | Stats** at the panel head
-3. **Drag to move**: hold the "TOKEN HUD" title (or the pill) and drag anywhere — the position is remembered across reloads
-4. **Long-press reset**: hold the pill still for ~0.6s to open a menu → "↺ Back to corner" restores the default position; "Cancel" dismisses it
-5. The three gestures never conflict: **click = open, hold = menu, drag = move**
+1. **Click the pill** to open the panel (pill shows pressure + ≈cumulative + TPS)
+2. **Drag** the pill or the panel header to move — you may drag the panel **past the screen edges** (any side), but a grabbable header strip always stays visible; the position is remembered across reloads
+3. **Long-press 0.6s** (pill or panel header) opens the position menu:
+
+```
+┌──────────────────────┐
+│ ⌟ Bottom-right        │ ← icon/text follow the saved default
+│ ✛ Position ▸          │
+│ Cancel                │
+└──────────────────────┘
+   Position submenu:
+   ├ ⌜ Top-left / ⌝ Top-right / ⌞ Bottom-left / ⌟ Bottom-right  ← presets
+   └ ✛ Custom position…                                         ← drag & release to save
+```
+
+- **Back to default**: the first item's icon and label follow the saved default ("Back to default · Top-right", "Back to custom position")
+- **Corner presets**: click to move there AND save as the default (uses the actual panel size, so bottom corners truly touch the edge)
+- **Custom position**: choose it, then drag the panel anywhere and release — saved as the new default, used on every page load
+- **✕** closes the panel without moving it (use the long-press menu to reset)
 
 ### Live view
 
-- The bold number on a row = **current context pressure** (what is in context right now); the grey `≈` number = **cumulative usage** (everything consumed historically, including cache reads)
-- Click a session row for details (input / output / cache read / cache write, pressure / projected / capacity, cost, context-usage bar) and its consumption curve
-- Top and per-session curves: **auto-scaling Y axis** (nice-number rounding with hysteresis, drops to zero when idle), time ticks on X, and a dashed leader + live value label at the latest point
+- Session rows: **bold number = current context pressure** (k scale); grey `≈` = cumulative usage (M scale, incl. cache reads); **green `¥` = that session's estimated cost**
+- Click a row for details (input / output / cache read / cache write, pressure / projected / capacity, cost, context-usage bar) and its consumption curve
+- Curves: **auto-scaling Y axis** (1/2/2.5/5×10ⁿ rounding with hysteresis, zero when idle) + gridlines + a dashed leader with a live value pill at the latest point + time ticks on X
 - 2m / 5m / 15m window switching
 - The panel follows the conversation you are viewing; "Show all" reveals historic sessions (survive restarts)
 
@@ -197,7 +217,7 @@ A: The panel follows your current conversation and hides empty (0-token) session
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) · Changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
