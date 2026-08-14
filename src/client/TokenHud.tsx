@@ -179,12 +179,16 @@ export interface TokenHudLocale {
   readonly openPanel: string
   /** Tooltip hint for the draggable title bar. */
   readonly dragHint: string
-  /** Long-press menu: position submenu. */
-  readonly positionMenu: string
   /** Long-press menu: reset the panel to the default corner. */
   readonly backToCorner: string
-  /** Long-press menu: set the current position as the new default. */
+  /** Toast after resetting to the corner. */
+  readonly backToCornerDone: string
+  /** Long-press menu: enter "set default position" capture mode. */
   readonly setAsDefault: string
+  /** Toast while in capture mode: drag to a new spot and release. */
+  readonly setDefaultHint: string
+  /** Toast after the default position was saved. */
+  readonly defaultSaved: string
   /** Long-press menu: dismiss. */
   readonly cancelMenu: string
   /** Template: '{pct}' is replaced with the percent number. */
@@ -754,8 +758,21 @@ export function TokenHud({ t, sessionsList }: {
   const longPressTriggeredRef = useRef(false)
   /** Long-press menu state (opened by holding the pill 600ms without moving). */
   const [pressMenu, setPressMenu] = useState(false)
-  /** Position submenu expanded inside the long-press menu. */
-  const [pressSubMenu, setPressSubMenu] = useState(false)
+  /** "Set default position" capture mode: the next drag saves the position. */
+  const [settingDefault, setSettingDefault] = useState(false)
+  const settingDefaultRef = useRef(false)
+  const setSettingDefaultBoth = (value: boolean): void => {
+    settingDefaultRef.current = value
+    setSettingDefault(value)
+  }
+  /** Transient confirmation toast text. */
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showToast = (text: string): void => {
+    setToast(text)
+    if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => { setToast(null) }, 2200)
+  }
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const panelRef = useRef<HTMLElement | null>(null)
 
@@ -869,6 +886,17 @@ export function TokenHud({ t, sessionsList }: {
     const final = drag.last
     dragState.current = null
     if (moved) {
+      if (settingDefaultRef.current) {
+        // Capture mode: this drag defines the new default position.
+        setDefaultPos(final)
+        setSettingDefaultBoth(false)
+        showToast(t('defaultSaved'))
+        try {
+          window.localStorage.setItem('dsh-token-panel-default-pos', JSON.stringify(final))
+        } catch {
+          // Storage unavailable; the default simply resets next load.
+        }
+      }
       // Suppress the click that fires after a genuine drag, so dragging the
       // collapsed pill moves it without opening the panel.
       suppressClickUntilRef.current = Date.now() + 600
@@ -885,7 +913,8 @@ export function TokenHud({ t, sessionsList }: {
   const goToDefault = (): void => {
     setPosition(null)
     setPressMenu(false)
-    setPressSubMenu(false)
+    setSettingDefaultBoth(false)
+    showToast(t('backToCornerDone'))
     try {
       window.localStorage.removeItem('dsh-token-panel-pos')
     } catch {
@@ -893,23 +922,11 @@ export function TokenHud({ t, sessionsList }: {
     }
   }
 
-  /** Save the current position as the user-defined initial position. */
-  const setCurrentAsDefault = (): void => {
-    // Sentinel: no position (currently at the corner) stores nothing, so the
-    // system corner remains the default.
-    if (position === null) {
-      setDefaultPos(null)
-      try {
-        window.localStorage.removeItem('dsh-token-panel-default-pos')
-      } catch { /* storage unavailable */ }
-    } else {
-      setDefaultPos(position)
-      try {
-        window.localStorage.setItem('dsh-token-panel-default-pos', JSON.stringify(position))
-      } catch { /* storage unavailable */ }
-    }
+  /** Enter capture mode: the next drag saves the position as the default. */
+  const startSetDefault = (): void => {
     setPressMenu(false)
-    setPressSubMenu(false)
+    setSettingDefaultBoth(true)
+    showToast(t('setDefaultHint'))
   }
 
   // Current session id from the session list (follows the open conversation).
@@ -1051,39 +1068,28 @@ export function TokenHud({ t, sessionsList }: {
           <button
             type="button"
             className={css.pressMenuItem}
-            onPointerEnter={() => { setPressSubMenu(true) }}
-            onClick={() => { setPressSubMenu((current) => !current) }}
-            aria-expanded={pressSubMenu}
+            onClick={() => { goToDefault(); suppressClickUntilRef.current = 0 }}
           >
-            <span>{t('positionMenu')}</span>
-            <span className={css.pressMenuCaret}>▸</span>
+            ↺ {t('backToCorner')}
           </button>
-          {pressSubMenu && (
-            <div className={css.pressSubMenu} data-press-menu>
-              <button
-                type="button"
-                className={css.pressMenuItem}
-                onClick={() => { goToDefault(); suppressClickUntilRef.current = 0 }}
-              >
-                ↺ {t('backToCorner')}
-              </button>
-              <button
-                type="button"
-                className={css.pressMenuItem}
-                onClick={() => { setCurrentAsDefault(); suppressClickUntilRef.current = 0 }}
-              >
-                📍 {t('setAsDefault')}
-              </button>
-            </div>
-          )}
           <button
             type="button"
             className={css.pressMenuItem}
-            onClick={() => { setPressMenu(false); setPressSubMenu(false) }}
+            onClick={() => { startSetDefault(); suppressClickUntilRef.current = 0 }}
+          >
+            📍 {t('setAsDefault')}
+          </button>
+          <button
+            type="button"
+            className={css.pressMenuItem}
+            onClick={() => { setPressMenu(false) }}
           >
             {t('cancelMenu')}
           </button>
         </div>
+      )}
+      {toast !== null && (
+        <div className={css.toast} data-toast>{toast}</div>
       )}
       {!open && (
         <div

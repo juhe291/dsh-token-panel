@@ -32,6 +32,24 @@
   animation: tokenPanelIn 120ms ease-out;
 }
 
+.toast {
+  position: absolute;
+  bottom: 46px;
+  right: 0;
+  max-width: 260px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 40%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 95%, transparent);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent);
+  color: var(--dsw-alias-label-primary);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  animation: tokenPanelIn 120ms ease-out;
+  pointer-events: none;
+}
+
 .pressMenuItem {
   display: flex;
   align-items: center;
@@ -52,22 +70,6 @@
 
 .pressMenuItem:hover {
   background: var(--dsw-alias-interactive-bg-hover);
-}
-
-.pressMenuCaret {
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 10px;
-}
-
-.pressSubMenu {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0 6px 2px;
-  padding: 4px;
-  border-left: 2px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 40%, transparent);
-  border-radius: 0 8px 8px 0;
-  background: color-mix(in srgb, var(--dsw-alias-bg-module) 50%, transparent);
 }
 
 .chip {
