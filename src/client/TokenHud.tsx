@@ -471,15 +471,14 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
 }
 
 /** Collapsed pill shown when the panel is closed. */
-function CollapsedChip({ total, cumulative, tps, onClick, t }: {
+function CollapsedChip({ total, cumulative, tps, t }: {
   readonly total: number
   readonly cumulative?: number
   readonly tps?: number
-  readonly onClick: () => void
   readonly t: Translate
 }) {
   return (
-    <button type="button" className={css.chip} onClick={onClick} aria-label={t('openPanel')}>
+    <button type="button" className={css.chip} aria-label={t('openPanel')}>
       <span className={css.chipDot} aria-hidden />
       <span className={css.chipLabel}>TOKEN</span>
       <span className={css.chipValue}>{formatNumber(total)}</span>
@@ -733,6 +732,8 @@ export function TokenHud({ t, sessionsList }: {
   /** Timestamp until which pill clicks are swallowed (drag/hold releases).
    *  Timestamp-based so a missed click can never wedge it permanently. */
   const suppressClickUntilRef = useRef(0)
+  /** Set when the long-press timer fired (reliable across render closures). */
+  const longPressTriggeredRef = useRef(false)
   /** Long-press menu state (opened by holding the pill 600ms without moving). */
   const [pressMenu, setPressMenu] = useState(false)
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -779,13 +780,25 @@ export function TokenHud({ t, sessionsList }: {
     }
     // Long-press detection: holding still for 600ms opens the corner menu.
     if (pressTimerRef.current !== null) clearTimeout(pressTimerRef.current)
+    longPressTriggeredRef.current = false
     pressTimerRef.current = setTimeout(() => {
       const drag = dragState.current
       if (drag === null || drag.moved) return
       // Fired from a still hold: show the menu and swallow the release click.
+      longPressTriggeredRef.current = true
       setPressMenu(true)
       suppressClickUntilRef.current = Date.now() + 600
     }, 600)
+  }
+
+  /** Pill release: open the panel unless this was a drag or a long-press.
+   *  Driven by pointerup (not click), which pointer capture cannot steal. */
+  const onPillPointerUp = (): void => {
+    const drag = dragState.current
+    const moved = drag?.moved ?? false
+    const menuShown = longPressTriggeredRef.current
+    onDragEnd()
+    if (!moved && !menuShown) setOpen(true)
   }
   const onDragMove = (event: React.PointerEvent<HTMLElement>): void => {
     const drag = dragState.current
@@ -983,8 +996,9 @@ export function TokenHud({ t, sessionsList }: {
 
   if (snapshot === null) {
     return (
-      <div className={css.host} style={hostStyle} data-token-hud>
-        <CollapsedChip total={0} onClick={() => { setOpen(true) }} t={t} />
+      <div className={css.host} style={{ ...hostStyle, cursor: 'grab' }} data-token-hud
+        {...dragHandlers} onPointerUp={onPillPointerUp}>
+        <CollapsedChip total={0} t={t} />
       </div>
     )
   }
@@ -1014,14 +1028,12 @@ export function TokenHud({ t, sessionsList }: {
         </div>
       )}
       {!open && (
-        <div {...dragHandlers} style={{ cursor: 'grab' }}>
-          <CollapsedChip total={totals.total} cumulative={totals.cumulative} tps={tps}
-            onClick={() => {
-              // A click right after a drag/hold is the release itself, not a
-              // user intent to open — swallow it while the window is active.
-              if (Date.now() < suppressClickUntilRef.current) return
-              setOpen(true)
-            }} t={t} />
+        <div
+          {...dragHandlers}
+          style={{ cursor: 'grab' }}
+          onPointerUp={onPillPointerUp}
+        >
+          <CollapsedChip total={totals.total} cumulative={totals.cumulative} tps={tps} t={t} />
         </div>
       )}
       {open && (
