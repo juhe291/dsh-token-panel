@@ -138,6 +138,8 @@ export interface TokenHudLocale {
     readonly projected: string;
     readonly capacity: string;
     readonly cost: string;
+    /** Tooltip for the session row cost figure. */
+    readonly costTitle: string;
     readonly today: string;
     readonly yesterday: string;
     readonly thisMonth: string;

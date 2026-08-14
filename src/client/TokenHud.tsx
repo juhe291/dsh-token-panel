@@ -210,6 +210,8 @@ export interface TokenHudLocale {
   readonly projected: string
   readonly capacity: string
   readonly cost: string
+  /** Tooltip for the session row cost figure. */
+  readonly costTitle: string
   readonly today: string
   readonly yesterday: string
   readonly thisMonth: string
@@ -609,6 +611,9 @@ function SessionRow({ row, prices, rangeMs, now, t }: {
           {cumulative !== undefined && (
             <span className={css.rowCumulative} title={t('cumulativeUsage')}>{t('approx')}{formatNumber(cumulative)}</span>
           )}
+          {usage !== undefined && (
+            <span className={css.rowCost} title={t('costTitle')}>{formatCost(cost)}</span>
+          )}
         </span>
         <span className={css.rowPulse} data-live={row.live} aria-hidden />
       </button>
@@ -954,18 +959,18 @@ export function TokenHud({ t, sessionsList }: {
     }
     const rawX = drag.baseX + dx
     const rawY = drag.baseY + dy
-    // Clamp with a visible sliver: the HUD may hang off-screen but its
-    // grabbable handle must stay reachable. The title block sits at the
-    // panel's top-left (0..110 × 0..46), so the top-left corner may go at
-    // most that far negative — any further and the handle leaves the screen.
-    // The pill's whole body IS the handle, so it never leaves the screen.
-    const VISIBLE = 48
-    const handleW = open ? 110 : drag.width
-    const minX = open ? -handleW : 0
-    const maxX = window.innerWidth - (open ? VISIBLE : drag.width + 8)
+    // Clamp with a visible sliver: the HUD may hang off-screen but must keep
+    // a grabbable strip reachable. The whole HEADER is the panel's drag
+    // handle (header height ~46px), so the panel may go negative until only
+    // ~24px of the header stays visible — far enough to "cover" the screen
+    // top, near enough to always grab back. The pill never leaves the screen.
+    const HEADER_VISIBLE = 24
+    const handleW = open ? drag.width : drag.width
+    const minX = open ? -(drag.width - HEADER_VISIBLE) : 0
+    const maxX = window.innerWidth - (open ? HEADER_VISIBLE : drag.width + 8)
     const handleH = open ? 46 : drag.height
-    const minY = open ? -handleH : 0
-    const maxY = window.innerHeight - (open ? VISIBLE : drag.height + 8)
+    const minY = open ? -(handleH - HEADER_VISIBLE) : 0
+    const maxY = window.innerHeight - (open ? HEADER_VISIBLE : drag.height + 8)
     drag.last = {
       x: Math.min(Math.max(rawX, minX), Math.max(maxX, minX)),
       y: Math.min(Math.max(rawY, minY), Math.max(maxY, minY)),
@@ -1310,8 +1315,8 @@ export function TokenHud({ t, sessionsList }: {
       )}
       {open && (
         <aside className={css.panel} data-token-panel ref={panelRef}>
-          <header className={css.head}>
-            <span className={css.title} {...dragHandlers} title={t('dragHint')}>
+          <header className={css.head} {...dragHandlers}>
+            <span className={css.title} title={t('dragHint')}>
               <span className={css.titleMark} aria-hidden />{t('token')}
             </span>
             <div className={css.viewBar} role="group" aria-label={t('viewSwitch')}
