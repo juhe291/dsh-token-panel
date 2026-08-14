@@ -175,8 +175,9 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 
 ```
 ~/.dsh/cache/dsh-token-panel/
-├── usage-2026-08-14.jsonl   # 每日用量日志
-└── state.json               # 上次用量基线（重启续接，防重复/防丢失）
+├── usage-2026-08-14.jsonl   # 每日用量日志（增量：输入/输出/缓存读/缓存写/模型）
+├── state.json               # 上次用量基线（重启续接，防重复/防丢失）
+└── known-sessions.json      # 会话注册表（重启后「展开全部」的历史会话不丢）
 ```
 
 记录维度：未命中输入、输出、缓存读、缓存写、**模型**（增量）。首次观察到会话时写入完整基线，之后记录增量——**累计从真实起点算起，重启不丢不重**。
@@ -186,11 +187,11 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 ## 工作原理
 
 - **Host 面**（`src/index.ts`）：
-  - 聚合 `ctx.tokenMeter.measure()`（压力/表面积）+ `ctx.sessionProjections.snapshot()`（provider 实测用量/容量/构成）+ `ctx.sessionTitle.get()`（会话标题）
-  - 注册两条 HTTP 路由：`/plugins/dsh-token-panel/snapshot`（实时）、`/plugins/dsh-token-panel/stats`（持久化统计）
-  - 用量增量按天持久化（崩溃安全：tmp + rename 原子写）
+  - 聚合 `ctx.tokenMeter.measure()`（压力/表面积）+ `ctx.sessionProjections.snapshot()`（provider 实测用量/容量/构成）+ `ctx.sessionTitle.get()`（会话标题）+ `ctx.credentials.resolve('DEEPSEEK_API_KEY')`（官网余额）
+  - 注册三条 HTTP 路由：`/plugins/dsh-token-panel/snapshot`（实时 + 按模型价表）、`/plugins/dsh-token-panel/stats`（持久化统计）、`/plugins/dsh-token-panel/balance`（官网余额，5 分钟缓存）
+  - 用量增量按天持久化（崩溃安全：tmp + rename 原子写），并按会话 × 模型分桶累计，供成本分模型计价
   - 过滤 0 token 的空会话
-- **Client 面**（`src/client/`）：body portal 右下角面板，1.5s 轮询实时数据、10s 轮询统计，SVG 曲线 + 设计令牌配色，**中英文 locale** 跟随 DSH 语言设置，通过 `ctx.sessions.list` 跟踪当前会话
+- **Client 面**（`src/client/`）：body portal 右下角面板，1.5s 轮询实时数据、10s 轮询统计、60s 轮询余额，SVG 曲线 + 设计令牌配色，**中英文 locale** 跟随 DSH 语言设置，通过 `ctx.sessions.list` 跟踪当前会话；预算/余额存 localStorage（点击数值行内编辑）
 
 ---
 
@@ -219,7 +220,13 @@ git push
 A: 实时显示的是**当前上下文压力**（几十万级，k 单位）；统计显示的是**历史累计消耗**（含缓存读，上亿级，M 单位）。两个指标口径不同，面板已同时展示（压力 + ≈累计）。
 
 **Q: 成本估算准吗？**
-A: 按 DeepSeek 官方价分级估算（缓存命中按 ¥0.02/M），仅作参考。权威账单请以 [DeepSeek 官网](https://platform.deepseek.com) 为准。
+A: 按 DeepSeek 官方价分级估算（缓存命中 / 未命中输入 / 输出分开计价，v4-flash 与 v4-pro 各有价表），仅作参考。权威账单请以 [DeepSeek 官网](https://platform.deepseek.com) 为准。
+
+**Q: 8/17 DeepSeek 调价后要改配置吗？**
+A: 不用。默认 `priceMode: auto`，2026-08-17 零时（北京时间）自动切换到峰谷价，底部「标准价」徽章会随之变成「高峰价 / 空闲价」。
+
+**Q: 余额数字为什么和官网对不上？**
+A: 点击设置余额后，本地按 token 消耗**估算**递减（估算价与官网计费可能有细微出入，且不包含折扣/赠送）。想对齐官网时，点余额数值重新输入官网当前余额即可校准；不设置时显示 API 拉取的官网余额。
 
 **Q: 曲线怎么只有最近几分钟？**
 A: 实时曲线是滚动内存窗口（600 点 ≈ 15 分钟），重启清零；统计视图的日/月曲线基于磁盘日志，长期保留。

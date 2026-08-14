@@ -174,22 +174,23 @@ Usage logs are appended per day (one JSON delta per line):
 
 ```
 ~/.dsh/cache/dsh-token-panel/
-├── usage-2026-08-14.jsonl   # daily usage logs
-└── state.json               # last-seen baselines (resume across restarts)
+├── usage-2026-08-14.jsonl   # daily usage logs (deltas: input/output/cache read/cache write/model)
+├── state.json               # last-seen baselines (resume across restarts)
+└── known-sessions.json      # session registry ("Show all" survives restarts)
 ```
 
-Tracked buckets: uncached input, output, cache read, cache write (deltas). The first observation of a session writes a full baseline, then deltas follow — totals start from the true baseline and never double-count after a restart.
+Tracked buckets: uncached input, output, cache read, cache write, **model** (deltas). The first observation of a session writes a full baseline, then deltas follow — totals start from the true baseline and never double-count after a restart.
 
 ---
 
 ## How It Works
 
 - **Host side** (`src/index.ts`):
-  - Aggregates `ctx.tokenMeter.measure()` (pressure/surface), `ctx.sessionProjections.snapshot()` (provider usage/capacity/breakdown) and `ctx.sessionTitle.get()` (titles)
-  - Serves two HTTP routes: `/plugins/dsh-token-panel/snapshot` (live), `/plugins/dsh-token-panel/stats` (durable stats)
-  - Persists usage deltas per day (crash-safe: tmp + atomic rename)
+  - Aggregates `ctx.tokenMeter.measure()` (pressure/surface), `ctx.sessionProjections.snapshot()` (provider usage/capacity/breakdown), `ctx.sessionTitle.get()` (titles) and `ctx.credentials.resolve('DEEPSEEK_API_KEY')` (official balance)
+  - Serves three HTTP routes: `/plugins/dsh-token-panel/snapshot` (live + per-model price tables), `/plugins/dsh-token-panel/stats` (durable stats), `/plugins/dsh-token-panel/balance` (official balance, 5-min cache)
+  - Persists usage deltas per day (crash-safe: tmp + atomic rename), accumulated per session × model for per-model cost pricing
   - Filters out empty sessions (0 tokens)
-- **Client side** (`src/client/`): body-portal corner panel, 1.5s live poll + 10s stats poll, SVG curves, DSH design-token theming, **en/zh locale** following the DSH language setting, current-session tracking via `ctx.sessions.list`
+- **Client side** (`src/client/`): body-portal corner panel, 1.5s live poll + 10s stats poll + 60s balance poll, SVG curves, DSH design-token theming, **en/zh locale** following the DSH language setting, current-session tracking via `ctx.sessions.list`; budget/balance stored in localStorage (click values to edit inline)
 
 ---
 
@@ -218,7 +219,13 @@ git push
 A: Live shows **current context pressure** (tens of thousands — k units); stats show **cumulative historical usage** including cache reads (hundreds of millions — M units). Two different metrics; the panel shows both (pressure + ≈cumulative).
 
 **Q: How accurate is the cost estimate?**
-A: It applies official DeepSeek rates by bucket (cache hits at ¥0.02/1M). Display-only — always verify against the [DeepSeek platform](https://platform.deepseek.com).
+A: It applies official DeepSeek rates by bucket (cache hit / uncached input / output billed separately, with per-model tables for v4-flash and v4-pro). Display-only — always verify against the [DeepSeek platform](https://platform.deepseek.com).
+
+**Q: Do I need to change config after the 2026-08-17 price revision?**
+A: No. The default `priceMode: auto` switches to peak/off-peak pricing automatically at 2026-08-17 00:00 Beijing time, and the footer badge changes from "flat rate" to "peak / off-peak rate" accordingly.
+
+**Q: Why doesn't the balance match the official one?**
+A: Once you set a balance, it decreases locally by **estimated** cost (estimates may drift slightly from the official bill and exclude discounts/grants). To re-sync, click the balance value and re-enter the official balance; when unset, the panel shows the API-fetched official balance instead.
 
 **Q: Why is the curve only the last few minutes?**
 A: Live curves are an in-memory rolling window (600 points ≈ 15 min) and reset on restart; the stats view's daily/monthly curves are backed by durable disk logs and persist.
