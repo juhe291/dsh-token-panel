@@ -376,10 +376,10 @@ function formatTime(t: number): string {
   return `${hh}:${mm}:${ss}`
 }
 
-/** Format a timestamp as a compact date, e.g. 8/14 (today: just the time). */
+/** Format a timestamp as a compact date, e.g. 2026/8/14. */
 function formatDateShort(t: number): string {
   const date = new Date(t)
-  return `${date.getMonth() + 1}/${date.getDate()}`
+  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
 }
 
 /** Locale-aware date label for a YYYY-MM-DD key. */
@@ -980,11 +980,11 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
           <div className={css.statsSparkWrap}>
             {subView === 'months'
               ? (monthPoints.length >= 1 && (
-                <Sparkline points={monthPoints} now={Date.now()} height={80}
+                <Sparkline points={monthPoints} now={Date.now()} height={92}
                   tickFormat={(value) => formatMonthTick(value, t)} t={t} />
               ))
               : (dayPoints.length >= 1 && (
-                <Sparkline points={dayPoints} now={Date.now()} height={80} tickFormat={formatDateTick} t={t} />
+                <Sparkline points={dayPoints} now={Date.now()} height={92} tickFormat={formatDateTick} t={t} />
               ))}
           </div>
           {listCount > 0 && (
