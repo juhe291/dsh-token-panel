@@ -15,7 +15,7 @@
  * @module dsh-token-panel/client/hud
  */
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { ObservableSnapshot, SessionListState } from '@deepseek-ai/dsh-client-runtime/client'
 import css from './TokenHud.module.css'
 
@@ -735,6 +735,19 @@ export function TokenHud({ t, sessionsList }: {
   /** Long-press menu state (opened by holding the pill 600ms without moving). */
   const [pressMenu, setPressMenu] = useState(false)
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const panelRef = useRef<HTMLElement | null>(null)
+
+  // When the panel opens at a dragged (left/top) position, nudge it back
+  // inside the viewport so it always renders fully.
+  useLayoutEffect(() => {
+    if (!open || panelRef.current === null || position === null) return
+    const rect = panelRef.current.getBoundingClientRect()
+    const maxX = Math.max(8, window.innerWidth - rect.width - 8)
+    const maxY = Math.max(8, window.innerHeight - rect.height - 8)
+    const x = Math.min(Math.max(position.x, 8), maxX)
+    const y = Math.min(Math.max(position.y, 8), maxY)
+    if (x !== position.x || y !== position.y) setPosition({ x, y })
+  }, [open, position])
 
   // Close the long-press menu on any outside pointerdown.
   useEffect(() => {
@@ -749,6 +762,9 @@ export function TokenHud({ t, sessionsList }: {
   }, [pressMenu])
 
   const onDragStart = (event: React.PointerEvent<HTMLElement>): void => {
+    // Capture the pointer so fast drags keep firing pointermove even when
+    // the cursor leaves the element (without this the drag dies mid-way).
+    event.currentTarget.setPointerCapture(event.pointerId)
     // Anchor on the element's current on-screen position, not (0,0) —
     // the default state is CSS right/bottom (bottom-right corner).
     const rect = event.currentTarget.getBoundingClientRect()
@@ -786,7 +802,18 @@ export function TokenHud({ t, sessionsList }: {
       clearTimeout(pressTimerRef.current)
       pressTimerRef.current = null
     }
-    drag.last = { x: drag.baseX + dx, y: drag.baseY + dy }
+    const rawX = drag.baseX + dx
+    const rawY = drag.baseY + dy
+    // Clamp into the viewport so the pill/panel can never be dragged
+    // fully off-screen. Measure the whole HUD host, not the handle.
+    const hostEl = (event.currentTarget as HTMLElement).closest('[data-token-panel-host]')
+    const size = hostEl !== null ? hostEl.getBoundingClientRect() : event.currentTarget.getBoundingClientRect()
+    const maxX = Math.max(8, window.innerWidth - size.width - 8)
+    const maxY = Math.max(8, window.innerHeight - size.height - 8)
+    drag.last = {
+      x: Math.min(Math.max(rawX, 8), maxX),
+      y: Math.min(Math.max(rawY, 8), maxY),
+    }
     setPosition(drag.last)
   }
   const onDragEnd = (): void => {
@@ -992,7 +1019,7 @@ export function TokenHud({ t, sessionsList }: {
         </div>
       )}
       {open && (
-        <aside className={css.panel} data-token-panel>
+        <aside className={css.panel} data-token-panel ref={panelRef}>
           <header className={css.head}>
             <span className={css.title} {...dragHandlers} title={t('dragHint')}>
               <span className={css.titleMark} aria-hidden />{t('token')}
