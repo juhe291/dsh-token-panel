@@ -1798,7 +1798,8 @@ export function TokenHud({ t, sessionsList }: {
             <div className={`${css.footCol} ${css.footRightCol}`}>
               <span className={css.footCost}>{t('costNow')}</span>
               <span className={css.footCost}><b>{formatCost(totalCostNow)}</b></span>
-              <span className={css.footDate}>{formatDateShort(snapshot.generatedAt)} {new Date(snapshot.generatedAt).toLocaleTimeString()}</span>
+              <span className={css.footDate}>{formatDateShort(snapshot.generatedAt)}</span>
+              <span className={css.mono}>{new Date(snapshot.generatedAt).toLocaleTimeString()}</span>
             </div>
           </footer>
         </aside>
