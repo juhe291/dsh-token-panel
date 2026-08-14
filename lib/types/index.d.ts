@@ -48,10 +48,25 @@ export interface Config {
     priceOffpeakCacheRead: number;
     /** Off-peak output price (CNY / 1M tokens). */
     priceOffpeakOutput: number;
+    /** Per-model price tables (CNY / 1M tokens): model id → {flat, peak, offpeak}.
+     *  Unmatched models fall back to the global flat/peak/off-peak prices above. */
+    modelPrices: Record<string, ModelPriceTable>;
     /** Monthly budget in CNY for the budget meter; 0 disables the meter. */
     budgetMonthly: number;
     /** Directory for durable per-day usage logs (default ~/.dsh/cache/dsh-token-panel). */
     dataDir?: string;
+}
+/** One model's three pricing tiers (CNY per 1M tokens). */
+export interface ModelPriceTable {
+    readonly flat: PriceTier;
+    readonly peak: PriceTier;
+    readonly offpeak: PriceTier;
+}
+/** One pricing tier: cache hit / miss / output (CNY per 1M tokens). */
+export interface PriceTier {
+    readonly hit: number;
+    readonly miss: number;
+    readonly output: number;
 }
 export declare const Config: z<Config>;
 declare module '@deepseek-ai/cordis' {
@@ -64,6 +79,8 @@ export interface SessionTokenSnapshot {
     readonly sessionId: string;
     /** True when the session has a live agent (otherwise archival/historic). */
     readonly live: boolean;
+    /** Model id this session's requests use (drives per-model pricing). */
+    readonly model?: string;
     /** Title hint: the session title when available, else the id tail. */
     readonly label: string;
     /** Session title text when the title service has one. */
@@ -100,6 +117,8 @@ export interface TokenPanelSnapshot {
     readonly sessions: readonly SessionTokenSnapshot[];
     /** Display-only price estimates (CNY per 1M tokens). */
     readonly prices: PriceEstimate;
+    /** Per-model price tiers in effect right now (flat/peak/offpeak). */
+    readonly modelPrices: Record<string, PriceTier>;
     /** Aggregate generation speed (output tokens / second across sessions). */
     readonly tps: number;
     /** Monthly budget in CNY (0 = meter disabled). */
@@ -121,6 +140,8 @@ export interface DayStat {
     readonly cacheRead: number;
     readonly cacheWrite: number;
     readonly total: number;
+    /** Per-model token buckets so costs price each model separately. */
+    readonly models: Record<string, UsageBucket>;
 }
 /** One month's usage aggregate. */
 export interface MonthStat {
@@ -130,6 +151,15 @@ export interface MonthStat {
     readonly cacheRead: number;
     readonly cacheWrite: number;
     readonly total: number;
+    /** Per-model token buckets so costs price each model separately. */
+    readonly models: Record<string, UsageBucket>;
+}
+/** Four-bucket token counts for one model. */
+export interface UsageBucket {
+    readonly i: number;
+    readonly o: number;
+    readonly cr: number;
+    readonly cw: number;
 }
 /** Durable statistics payload. */
 export interface TokenStats {
@@ -138,6 +168,8 @@ export interface TokenStats {
     readonly months: readonly MonthStat[];
     /** Display-only price estimates (CNY per 1M tokens). */
     readonly prices: PriceEstimate;
+    /** Per-model price tiers in effect right now (flat/peak/offpeak). */
+    readonly modelPrices: Record<string, PriceTier>;
 }
 /**
  * Service aggregating token data for the panel. Constructing the service
@@ -164,6 +196,10 @@ export declare class TokenPanelService extends Service {
     private saveKnownSessions;
     /** Resolve the price table currently in effect (flat or peak/off-peak). */
     resolvePrices(now: number): PriceEstimate;
+    /** Beijing peak hours: 9-12 and 14-18. */
+    private isPeakNow;
+    /** Resolve the per-model price table in effect right now (flat/peak/offpeak). */
+    resolveModelPrices(now: number): Record<string, PriceTier>;
     /** Restore the last-seen usage baselines from state.json (crash-safe). */
     private loadState;
     /** Persist last-seen baselines atomically (tmp + rename). */

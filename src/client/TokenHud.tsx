@@ -41,6 +41,8 @@ const RANGES: readonly { label: string; ms: number }[] = [
 export interface SessionTokenRow {
   readonly sessionId: string
   readonly live: boolean
+  /** Model id this session's requests use (drives per-model pricing). */
+  readonly model?: string
   /** Display label: session title when available, else the id tail. */
   readonly label: string
   /** Session title text when the title service has one. */
@@ -76,10 +78,19 @@ export interface TokenSnapshot {
   readonly generatedAt: number
   readonly sessions: readonly SessionTokenRow[]
   readonly prices?: PriceEstimate
+  /** Per-model price tiers in effect (flat/peak/offpeak). */
+  readonly modelPrices?: Record<string, PriceTier>
   /** Aggregate generation speed (output tokens per second). */
   readonly tps?: number
   /** Monthly budget in CNY (0 = disabled). */
   readonly budgetMonthly?: number
+}
+
+/** One pricing tier: cache hit / miss / output (CNY per 1M tokens). */
+export interface PriceTier {
+  readonly hit: number
+  readonly miss: number
+  readonly output: number
 }
 
 /** One day's usage aggregate. */
@@ -90,6 +101,8 @@ export interface DayStat {
   readonly cacheRead: number
   readonly cacheWrite: number
   readonly total: number
+  /** Per-model token buckets so costs price each model separately. */
+  readonly models?: Record<string, PriceUsageBucket>
 }
 
 /** One month's usage aggregate. */
@@ -100,6 +113,16 @@ export interface MonthStat {
   readonly cacheRead: number
   readonly cacheWrite: number
   readonly total: number
+  /** Per-model token buckets so costs price each model separately. */
+  readonly models?: Record<string, PriceUsageBucket>
+}
+
+/** Four-bucket token counts for one model. */
+export interface PriceUsageBucket {
+  readonly i: number
+  readonly o: number
+  readonly cr: number
+  readonly cw: number
 }
 
 /** Durable statistics payload. */
@@ -108,6 +131,8 @@ export interface TokenStats {
   readonly days: readonly DayStat[]
   readonly months: readonly MonthStat[]
   readonly prices?: PriceEstimate
+  /** Per-model price tiers in effect (flat/peak/offpeak). */
+  readonly modelPrices?: Record<string, PriceTier>
 }
 
 /** Display-only price estimate (CNY per 1M tokens). */
@@ -383,17 +408,59 @@ function estimateCost(
   )
 }
 
-/** Estimate session cost in CNY from provider usage buckets. */
-function estimateRowCost(row: SessionTokenRow, prices: PriceEstimate): number {
+/** Estimate cost from usage buckets against one per-model tier. */
+function estimateTierCost(
+  input: number,
+  cacheRead: number,
+  cacheWrite: number,
+  output: number,
+  tier: PriceTier,
+): number {
+  return (
+    ((input + cacheWrite) / 1_000_000) * tier.miss
+    + (cacheRead / 1_000_000) * tier.hit
+    + (output / 1_000_000) * tier.output
+  )
+}
+
+/** Fallback tier (the flat table) for models without an explicit entry. */
+function fallbackTier(prices: PriceEstimate): PriceTier {
+  return { hit: prices.cacheRead, miss: prices.input, output: prices.output }
+}
+
+/** Session cost: pick the session's model tier when available. */
+function estimateRowCost(row: SessionTokenRow, prices: PriceEstimate, modelPrices?: Record<string, PriceTier>): number {
   const usage = row.usage
   if (usage === undefined) return 0
-  return estimateCost(
+  const tier = (row.model !== undefined && modelPrices?.[row.model] !== undefined)
+    ? modelPrices[row.model]!
+    : fallbackTier(prices)
+  return estimateTierCost(
     usage.uncachedInputTokens,
     usage.cacheReadTokens,
     usage.cacheWriteTokens,
     usage.outputTokens,
-    prices,
+    tier,
   )
+}
+
+/** Aggregate cost of one day/month stat, pricing each model bucket separately. */
+function estimateStatCost(
+  stat: { readonly input: number; readonly cacheRead: number; readonly cacheWrite: number; readonly output: number; readonly models?: Record<string, PriceUsageBucket> },
+  prices: PriceEstimate,
+  modelPrices?: Record<string, PriceTier>,
+): number {
+  const models = stat.models
+  if (models === undefined || Object.keys(models).length === 0) {
+    // Legacy logs without per-model buckets: fall back to the global table.
+    return estimateCost(stat.input, stat.cacheRead, stat.cacheWrite, stat.output, prices)
+  }
+  let total = 0
+  for (const [model, bucket] of Object.entries(models)) {
+    const tier = modelPrices?.[model] ?? fallbackTier(prices)
+    total += estimateTierCost(bucket.i, bucket.cr, bucket.cw, bucket.o, tier)
+  }
+  return total
 }
 
 /** Format a CNY cost for display. */
@@ -630,9 +697,10 @@ function CollapsedChip({ total, cumulative, tps, t }: {
 }
 
 /** One session row inside the live view. */
-function SessionRow({ row, prices, rangeMs, now, t, onHint, onHintEnd }: {
+function SessionRow({ row, prices, modelPrices, rangeMs, now, t, onHint, onHintEnd }: {
   readonly row: SessionTokenRow
   readonly prices: PriceEstimate
+  readonly modelPrices?: Record<string, PriceTier>
   readonly rangeMs: number
   readonly now: number
   readonly t: Translate
@@ -641,7 +709,7 @@ function SessionRow({ row, prices, rangeMs, now, t, onHint, onHintEnd }: {
 }) {
   const [open, setOpen] = useState(false)
   const usage = row.usage
-  const cost = estimateRowCost(row, prices)
+  const cost = estimateRowCost(row, prices, modelPrices)
   const used = occupancy(row)
   const label = row.label !== '' ? row.label : row.sessionId.slice(-8)
   // Per-tick consumption deltas: idle ticks drop to zero.
@@ -777,6 +845,7 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
     return <span className={css.empty}>{t('loading')}</span>
   }
   const prices = stats.prices ?? { input: 1, cacheRead: 0.02, output: 2 }
+  const modelPrices = stats.modelPrices
   const maxMonth = Math.max(...stats.months.map((month) => month.total), 1)
   const maxDay = Math.max(...stats.days.map((day) => day.total), 1)
   const totalAll = stats.months.reduce((sum, month) => sum + month.total, 0)
@@ -786,7 +855,7 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
   const thisMonthKey = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}`
   const monthCost = stats.months
     .filter((month) => month.month === thisMonthKey)
-    .reduce((sum, month) => sum + estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, prices), 0)
+    .reduce((sum, month) => sum + estimateStatCost(month, prices, modelPrices), 0)
 
   /** Render the editable value: compact box with hover hint, or input when editing. */
   const renderEditor = (kind: 'budget' | 'balance', value: number | null, display: string): React.ReactNode => {
@@ -827,12 +896,12 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
     ? stats.months.map((month) => (
       <StatBar key={month.month} label={monthLabel(month.month, t)} value={month.total} max={maxMonth}
         input={month.input} output={month.output} cacheRead={month.cacheRead} cacheWrite={month.cacheWrite}
-        cost={estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, prices)} />
+        cost={estimateStatCost(month, prices, modelPrices)} />
     ))
     : stats.days.map((day) => (
       <StatBar key={day.date} label={dateLabel(day.date, t)} value={day.total} max={maxDay}
         input={day.input} output={day.output} cacheRead={day.cacheRead} cacheWrite={day.cacheWrite}
-        cost={estimateCost(day.input, day.cacheRead, day.cacheWrite, day.output, prices)} />
+        cost={estimateStatCost(day, prices, modelPrices)} />
     ))
 
   return (
@@ -881,31 +950,30 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
           <div className={css.statsSparkWrap}>
             {subView === 'months'
               ? (monthPoints.length >= 1 && (
-                <Sparkline points={monthPoints} now={Date.now()} height={52}
+                <Sparkline points={monthPoints} now={Date.now()} height={72}
                   tickFormat={(value) => formatMonthTick(value, t)} t={t} />
               ))
               : (dayPoints.length >= 1 && (
-                <Sparkline points={dayPoints} now={Date.now()} height={52} tickFormat={formatDateTick} t={t} />
+                <Sparkline points={dayPoints} now={Date.now()} height={72} tickFormat={formatDateTick} t={t} />
               ))}
           </div>
-        </section>
-      )}
-
-      {hasData && listCount > 0 && (
-        <section className={css.section}>
-          {listExpanded && listItems}
-          <button
-            type="button"
-            className={css.moreButton}
-            onClick={() => { setListExpanded((current) => !current) }}
-          >
-            <span className={css.moreCaret}>{listExpanded ? '▴' : '▾'}</span>
-            {listExpanded
-              ? t('collapseList')
-              : subView === 'months'
-                ? fill(t('expandMonths'), { count: listCount })
-                : fill(t('expandDays'), { count: listCount })}
-          </button>
+          {listCount > 0 && (
+            <>
+              {listExpanded && listItems}
+              <button
+                type="button"
+                className={css.moreButton}
+                onClick={() => { setListExpanded((current) => !current) }}
+              >
+                <span className={css.moreCaret}>{listExpanded ? '▴' : '▾'}</span>
+                {listExpanded
+                  ? t('collapseList')
+                  : subView === 'months'
+                    ? fill(t('expandMonths'), { count: listCount })
+                    : fill(t('expandDays'), { count: listCount })}
+              </button>
+            </>
+          )}
         </section>
       )}
 
@@ -1414,6 +1482,7 @@ export function TokenHud({ t, sessionsList }: {
   }, [snapshot])
 
   const prices = snapshot?.prices ?? { input: 1, cacheRead: 0.02, output: 2 }
+  const modelPrices = snapshot?.modelPrices
   const tps = snapshot?.tps ?? 0
   const budgetMonthly = userBudget ?? snapshot?.budgetMonthly ?? 0
 
@@ -1422,7 +1491,7 @@ export function TokenHud({ t, sessionsList }: {
     if (stats === null) return 0
     const sp = stats.prices ?? { input: 1, cacheRead: 0.02, output: 2 }
     return stats.months.reduce(
-      (sum, month) => sum + estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, sp),
+      (sum, month) => sum + estimateStatCost(month, sp, stats.modelPrices),
       0,
     )
   }, [stats])
@@ -1651,7 +1720,7 @@ export function TokenHud({ t, sessionsList }: {
                   return (
                     <>
                       {rows.map((row) => (
-                        <SessionRow key={row.sessionId} row={row} prices={prices} rangeMs={rangeMs} now={now} t={t} onHint={showHint} onHintEnd={hideHint} />
+                        <SessionRow key={row.sessionId} row={row} prices={prices} modelPrices={modelPrices} rangeMs={rangeMs} now={now} t={t} onHint={showHint} onHintEnd={hideHint} />
                       ))}
                       {!showAll && others.length > 0 && (
                         <button type="button" className={css.moreButton} onClick={() => { setShowAll(true) }}>

@@ -59,10 +59,54 @@ export interface Config {
   priceOffpeakCacheRead: number
   /** Off-peak output price (CNY / 1M tokens). */
   priceOffpeakOutput: number
+  /** Per-model price tables (CNY / 1M tokens): model id → {flat, peak, offpeak}.
+   *  Unmatched models fall back to the global flat/peak/off-peak prices above. */
+  modelPrices: Record<string, ModelPriceTable>
   /** Monthly budget in CNY for the budget meter; 0 disables the meter. */
   budgetMonthly: number
   /** Directory for durable per-day usage logs (default ~/.dsh/cache/dsh-token-panel). */
   dataDir?: string
+}
+
+/** One model's three pricing tiers (CNY per 1M tokens). */
+export interface ModelPriceTable {
+  readonly flat: PriceTier
+  readonly peak: PriceTier
+  readonly offpeak: PriceTier
+}
+
+/** One pricing tier: cache hit / miss / output (CNY per 1M tokens). */
+export interface PriceTier {
+  readonly hit: number
+  readonly miss: number
+  readonly output: number
+}
+
+const priceTierSchema = z.object({
+  hit: z.number().min(0),
+  miss: z.number().min(0),
+  output: z.number().min(0),
+})
+
+const modelPriceSchema = z.object({
+  flat: priceTierSchema,
+  peak: priceTierSchema,
+  offpeak: priceTierSchema,
+})
+
+// DeepSeek official prices per 1M tokens (flat table, valid until 2026-08-17).
+const BUILTIN_MODEL_PRICES: Record<string, ModelPriceTable> = {
+  'deepseek-v4-flash': {
+    flat: { hit: 0.02, miss: 1, output: 2 },
+    // 2026-08-17 peak/off-peak revision:
+    peak: { hit: 0.1, miss: 3, output: 9 },
+    offpeak: { hit: 0.05, miss: 1.5, output: 4.5 },
+  },
+  'deepseek-v4-pro': {
+    flat: { hit: 0.025, miss: 3, output: 6 },
+    peak: { hit: 0.3, miss: 9, output: 27 },
+    offpeak: { hit: 0.15, miss: 4.5, output: 13.5 },
+  },
 }
 
 export const Config: z<Config> = z.object({
@@ -82,6 +126,7 @@ export const Config: z<Config> = z.object({
   priceOffpeakInput: z.number().default(1.5),
   priceOffpeakCacheRead: z.number().default(0.05),
   priceOffpeakOutput: z.number().default(4.5),
+  modelPrices: z.dict(modelPriceSchema).default(BUILTIN_MODEL_PRICES),
   budgetMonthly: z.number().default(0),
   dataDir: z.string(),
 })
@@ -97,6 +142,8 @@ export interface SessionTokenSnapshot {
   readonly sessionId: string
   /** True when the session has a live agent (otherwise archival/historic). */
   readonly live: boolean
+  /** Model id this session's requests use (drives per-model pricing). */
+  readonly model?: string
   /** Title hint: the session title when available, else the id tail. */
   readonly label: string
   /** Session title text when the title service has one. */
@@ -135,6 +182,8 @@ export interface TokenPanelSnapshot {
   readonly sessions: readonly SessionTokenSnapshot[]
   /** Display-only price estimates (CNY per 1M tokens). */
   readonly prices: PriceEstimate
+  /** Per-model price tiers in effect right now (flat/peak/offpeak). */
+  readonly modelPrices: Record<string, PriceTier>
   /** Aggregate generation speed (output tokens / second across sessions). */
   readonly tps: number
   /** Monthly budget in CNY (0 = meter disabled). */
@@ -158,6 +207,8 @@ export interface DayStat {
   readonly cacheRead: number
   readonly cacheWrite: number
   readonly total: number
+  /** Per-model token buckets so costs price each model separately. */
+  readonly models: Record<string, UsageBucket>
 }
 
 /** One month's usage aggregate. */
@@ -168,6 +219,16 @@ export interface MonthStat {
   readonly cacheRead: number
   readonly cacheWrite: number
   readonly total: number
+  /** Per-model token buckets so costs price each model separately. */
+  readonly models: Record<string, UsageBucket>
+}
+
+/** Four-bucket token counts for one model. */
+export interface UsageBucket {
+  readonly i: number
+  readonly o: number
+  readonly cr: number
+  readonly cw: number
 }
 
 /** Durable statistics payload. */
@@ -177,6 +238,8 @@ export interface TokenStats {
   readonly months: readonly MonthStat[]
   /** Display-only price estimates (CNY per 1M tokens). */
   readonly prices: PriceEstimate
+  /** Per-model price tiers in effect right now (flat/peak/offpeak). */
+  readonly modelPrices: Record<string, PriceTier>
 }
 
 /** Rolling per-session history buffer (600 points ≈ 15 min at 1.5s polling). */
@@ -188,6 +251,8 @@ interface UsageDeltaLine {
   readonly t: number
   /** Session id tail (stable identifier for display). */
   readonly s: string
+  /** Model id this delta was billed against. */
+  readonly m: string
   /** Delta of uncached input tokens since the last observation. */
   readonly i: number
   /** Delta of output tokens since the last observation. */
@@ -291,6 +356,7 @@ export class TokenPanelService extends Service {
 
   /** Resolve the price table currently in effect (flat or peak/off-peak). */
   resolvePrices(now: number): PriceEstimate {
+    const peak = this.isPeakNow(now)
     if (this.config.priceMode !== 'peak-offpeak') {
       return {
         input: this.config.pricePerMInput,
@@ -299,10 +365,6 @@ export class TokenPanelService extends Service {
         mode: 'flat',
       }
     }
-    // Beijing peak hours: 9-12 and 14-18. Use the Beijing hour directly.
-    const beijing = new Date(now + 8 * 3_600_000)
-    const hour = beijing.getUTCHours()
-    const peak = (hour >= 9 && hour < 12) || (hour >= 14 && hour < 18)
     return peak
       ? {
           input: this.config.pricePeakInput,
@@ -316,6 +378,26 @@ export class TokenPanelService extends Service {
           output: this.config.priceOffpeakOutput,
           mode: 'offpeak',
         }
+  }
+
+  /** Beijing peak hours: 9-12 and 14-18. */
+  private isPeakNow(now: number): boolean {
+    const beijing = new Date(now + 8 * 3_600_000)
+    const hour = beijing.getUTCHours()
+    return (hour >= 9 && hour < 12) || (hour >= 14 && hour < 18)
+  }
+
+  /** Resolve the per-model price table in effect right now (flat/peak/offpeak). */
+  resolveModelPrices(now: number): Record<string, PriceTier> {
+    const tier = this.config.priceMode === 'peak-offpeak'
+      ? (this.isPeakNow(now) ? 'peak' : 'offpeak')
+      : 'flat'
+    const tables = this.config.modelPrices ?? {}
+    const resolved: Record<string, PriceTier> = {}
+    for (const [model, table] of Object.entries(tables)) {
+      resolved[model] = table[tier]
+    }
+    return resolved
   }
 
   /** Restore the last-seen usage baselines from state.json (crash-safe). */
@@ -366,7 +448,7 @@ export class TokenPanelService extends Service {
   }
 
   /** Persist a usage delta for one session to today's JSONL file. */
-  private persistDelta(id: string, usage: TokenUsageProjection, now: number): void {
+  private persistDelta(id: string, usage: TokenUsageProjection, now: number, model: string): void {
     const previous = this.lastUsage.get(id)
     if (previous === undefined) {
       // First observation (fresh install or a session unknown to state):
@@ -377,6 +459,7 @@ export class TokenPanelService extends Service {
       appendFileSync(join(this.dataDir, `usage-${dayKey(now)}.jsonl`), `${JSON.stringify({
         t: now,
         s: id.slice(-8),
+        m: model,
         i: usage.uncachedInputTokens,
         o: usage.outputTokens,
         cr: usage.cacheReadTokens,
@@ -394,6 +477,7 @@ export class TokenPanelService extends Service {
     const delta: UsageDeltaLine = {
       t: now,
       s: id.slice(-8),
+      m: model,
       i: Math.max(0, usage.uncachedInputTokens - previous.input),
       o: Math.max(0, usage.outputTokens - previous.output),
       cr: Math.max(0, usage.cacheReadTokens - previous.cacheRead),
@@ -460,7 +544,7 @@ export class TokenPanelService extends Service {
 
       if (usage !== undefined) {
         try {
-          this.persistDelta(id, usage, now)
+          this.persistDelta(id, usage, now, agent.options.model ?? 'unknown')
         } catch (error: unknown) {
           ctx.logger.warn(`token-panel: usage persist failed for ${id}: ${String(error)}`)
         }
@@ -483,6 +567,7 @@ export class TokenPanelService extends Service {
       sessions.push({
         sessionId: id,
         live: true,
+        model: agent.options.model,
         label: title !== undefined && title !== '' ? title : id.slice(-8),
         ...(title !== undefined && title !== '' ? { title } : {}),
         totalTokens,
@@ -547,6 +632,7 @@ export class TokenPanelService extends Service {
       generatedAt: now,
       sessions: meaningful,
       prices: this.resolvePrices(now),
+      modelPrices: this.resolveModelPrices(now),
       tps,
       budgetMonthly: this.config.budgetMonthly,
     }
@@ -560,6 +646,7 @@ export class TokenPanelService extends Service {
       output: number
       cacheRead: number
       cacheWrite: number
+      models: Map<string, { i: number; o: number; cr: number; cw: number }>
     }
     interface MutableMonth {
       month: string
@@ -567,8 +654,25 @@ export class TokenPanelService extends Service {
       output: number
       cacheRead: number
       cacheWrite: number
+      models: Map<string, { i: number; o: number; cr: number; cw: number }>
     }
     const days = new Map<string, MutableDay>()
+    const addDelta = (day: MutableDay, delta: UsageDeltaLine): void => {
+      day.input += delta.i
+      day.output += delta.o
+      day.cacheRead += delta.cr
+      day.cacheWrite += delta.cw
+      const model = typeof delta.m === 'string' && delta.m !== '' ? delta.m : 'unknown'
+      let bucket = day.models.get(model)
+      if (bucket === undefined) {
+        bucket = { i: 0, o: 0, cr: 0, cw: 0 }
+        day.models.set(model, bucket)
+      }
+      bucket.i += delta.i
+      bucket.o += delta.o
+      bucket.cr += delta.cr
+      bucket.cw += delta.cw
+    }
     if (existsSync(this.dataDir)) {
       for (const entry of readdirSync(this.dataDir)) {
         const match = /^usage-(\d{4}-\d{2}-\d{2})\.jsonl$/.exec(entry)
@@ -576,7 +680,7 @@ export class TokenPanelService extends Service {
         const date = match[1] ?? ''
         let day = days.get(date)
         if (day === undefined) {
-          day = { date, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+          day = { date, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, models: new Map() }
           days.set(date, day)
         }
         const lines = readFileSync(join(this.dataDir, entry), 'utf8').split('\n')
@@ -585,10 +689,7 @@ export class TokenPanelService extends Service {
           try {
             const delta = JSON.parse(line) as UsageDeltaLine
             if (typeof delta.i !== 'number' || typeof delta.o !== 'number') continue
-            day.input += delta.i
-            day.output += delta.o
-            day.cacheRead += delta.cr
-            day.cacheWrite += delta.cw
+            addDelta(day, delta)
           } catch {
             // Torn or foreign line: skip.
           }
@@ -603,6 +704,8 @@ export class TokenPanelService extends Service {
       cacheRead: day.cacheRead,
       cacheWrite: day.cacheWrite,
       total: day.input + day.output + day.cacheRead + day.cacheWrite,
+      models: Object.fromEntries([...day.models.entries()].map(([model, bucket]) =>
+        [model, { i: bucket.i, o: bucket.o, cr: bucket.cr, cw: bucket.cw }])),
     })).sort((a, b) => b.date.localeCompare(a.date))
 
     const months = new Map<string, MutableMonth>()
@@ -610,13 +713,24 @@ export class TokenPanelService extends Service {
       const month = monthKey(day.date)
       let entry = months.get(month)
       if (entry === undefined) {
-        entry = { month, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+        entry = { month, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, models: new Map() }
         months.set(month, entry)
       }
       entry.input += day.input
       entry.output += day.output
       entry.cacheRead += day.cacheRead
       entry.cacheWrite += day.cacheWrite
+      for (const [model, bucket] of Object.entries(day.models)) {
+        let mb = entry.models.get(model)
+        if (mb === undefined) {
+          mb = { i: 0, o: 0, cr: 0, cw: 0 }
+          entry.models.set(model, mb)
+        }
+        mb.i += bucket.i
+        mb.o += bucket.o
+        mb.cr += bucket.cr
+        mb.cw += bucket.cw
+      }
     }
     const monthList: MonthStat[] = [...months.values()].map((entry) => ({
       month: entry.month,
@@ -625,13 +739,17 @@ export class TokenPanelService extends Service {
       cacheRead: entry.cacheRead,
       cacheWrite: entry.cacheWrite,
       total: entry.input + entry.output + entry.cacheRead + entry.cacheWrite,
+      models: Object.fromEntries([...entry.models.entries()].map(([model, bucket]) =>
+        [model, { i: bucket.i, o: bucket.o, cr: bucket.cr, cw: bucket.cw }])),
     })).sort((a, b) => b.month.localeCompare(a.month))
 
+    const now = Date.now()
     return {
-      generatedAt: Date.now(),
+      generatedAt: now,
       days: dayList,
       months: monthList,
-      prices: this.resolvePrices(Date.now()),
+      prices: this.resolvePrices(now),
+      modelPrices: this.resolveModelPrices(now),
     }
   }
 

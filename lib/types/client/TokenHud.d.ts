@@ -19,6 +19,8 @@ import type { ObservableSnapshot, SessionListState } from '@deepseek-ai/dsh-clie
 export interface SessionTokenRow {
     readonly sessionId: string;
     readonly live: boolean;
+    /** Model id this session's requests use (drives per-model pricing). */
+    readonly model?: string;
     /** Display label: session title when available, else the id tail. */
     readonly label: string;
     /** Session title text when the title service has one. */
@@ -52,10 +54,18 @@ export interface TokenSnapshot {
     readonly generatedAt: number;
     readonly sessions: readonly SessionTokenRow[];
     readonly prices?: PriceEstimate;
+    /** Per-model price tiers in effect (flat/peak/offpeak). */
+    readonly modelPrices?: Record<string, PriceTier>;
     /** Aggregate generation speed (output tokens per second). */
     readonly tps?: number;
     /** Monthly budget in CNY (0 = disabled). */
     readonly budgetMonthly?: number;
+}
+/** One pricing tier: cache hit / miss / output (CNY per 1M tokens). */
+export interface PriceTier {
+    readonly hit: number;
+    readonly miss: number;
+    readonly output: number;
 }
 /** One day's usage aggregate. */
 export interface DayStat {
@@ -65,6 +75,8 @@ export interface DayStat {
     readonly cacheRead: number;
     readonly cacheWrite: number;
     readonly total: number;
+    /** Per-model token buckets so costs price each model separately. */
+    readonly models?: Record<string, PriceUsageBucket>;
 }
 /** One month's usage aggregate. */
 export interface MonthStat {
@@ -74,6 +86,15 @@ export interface MonthStat {
     readonly cacheRead: number;
     readonly cacheWrite: number;
     readonly total: number;
+    /** Per-model token buckets so costs price each model separately. */
+    readonly models?: Record<string, PriceUsageBucket>;
+}
+/** Four-bucket token counts for one model. */
+export interface PriceUsageBucket {
+    readonly i: number;
+    readonly o: number;
+    readonly cr: number;
+    readonly cw: number;
 }
 /** Durable statistics payload. */
 export interface TokenStats {
@@ -81,6 +102,8 @@ export interface TokenStats {
     readonly days: readonly DayStat[];
     readonly months: readonly MonthStat[];
     readonly prices?: PriceEstimate;
+    /** Per-model price tiers in effect (flat/peak/offpeak). */
+    readonly modelPrices?: Record<string, PriceTier>;
 }
 /** Display-only price estimate (CNY per 1M tokens). */
 export interface PriceEstimate {
