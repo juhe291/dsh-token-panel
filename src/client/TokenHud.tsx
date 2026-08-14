@@ -575,12 +575,14 @@ function CollapsedChip({ total, cumulative, tps, t }: {
 }
 
 /** One session row inside the live view. */
-function SessionRow({ row, prices, rangeMs, now, t }: {
+function SessionRow({ row, prices, rangeMs, now, t, onHint, onHintEnd }: {
   readonly row: SessionTokenRow
   readonly prices: PriceEstimate
   readonly rangeMs: number
   readonly now: number
   readonly t: Translate
+  readonly onHint: (text: string, el: HTMLElement) => void
+  readonly onHintEnd: () => void
 }) {
   const [open, setOpen] = useState(false)
   const usage = row.usage
@@ -602,19 +604,35 @@ function SessionRow({ row, prices, rangeMs, now, t }: {
         onClick={() => { setOpen((current) => !current) }}
         aria-expanded={open}
       >
-        <span className={css.rowName} title={`${row.title ?? ''} ${row.sessionId}`}>
+        <span
+          className={css.rowName}
+          onPointerEnter={(event) => { onHint(`${row.title ?? ''} ${row.sessionId}`, event.currentTarget) }}
+          onPointerLeave={onHintEnd}
+        >
           <span className={css.rowTitle}>{label}</span>
           {row.title !== undefined && row.title !== '' && (
             <span className={css.rowSub}>{row.sessionId.slice(-8)}</span>
           )}
         </span>
         <span className={css.rowTokensWrap}>
-          <span className={css.rowTokens} title={t('currentPressure')}>{formatNumber(row.totalTokens)}</span>
+          <span
+            className={css.rowTokens}
+            onPointerEnter={(event) => { onHint(t('currentPressure'), event.currentTarget) }}
+            onPointerLeave={onHintEnd}
+          >{formatNumber(row.totalTokens)}</span>
           {cumulative !== undefined && (
-            <span className={css.rowCumulative} title={t('cumulativeUsage')}>{t('approx')}{formatNumber(cumulative)}</span>
+            <span
+              className={css.rowCumulative}
+              onPointerEnter={(event) => { onHint(t('cumulativeUsage'), event.currentTarget) }}
+              onPointerLeave={onHintEnd}
+            >{t('approx')}{formatNumber(cumulative)}</span>
           )}
           {usage !== undefined && (
-            <span className={css.rowCost} title={t('costTitle')}>{formatCost(cost)}</span>
+            <span
+              className={css.rowCost}
+              onPointerEnter={(event) => { onHint(t('costTitle'), event.currentTarget) }}
+              onPointerLeave={onHintEnd}
+            >{formatCost(cost)}</span>
           )}
         </span>
         <span className={css.rowPulse} data-live={row.live} aria-hidden />
@@ -864,6 +882,36 @@ export function TokenHud({ t, sessionsList }: {
   }
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const panelRef = useRef<HTMLElement | null>(null)
+  const hostRef = useRef<HTMLDivElement | null>(null)
+  /** Hover hint bubble (JS-driven so it can float over the scrolling rows). */
+  const [hint, setHint] = useState<{
+    readonly key: number
+    readonly text: string
+    readonly x: number
+    readonly y: number
+    readonly above: boolean
+  } | null>(null)
+  const hintSeqRef = useRef(0)
+
+  /** Show the auto-fading hint bubble under/above an element. */
+  const showHint = (text: string, el: HTMLElement, above = false): void => {
+    const host = hostRef.current
+    if (host === null) return
+    const hostRect = host.getBoundingClientRect()
+    const rect = el.getBoundingClientRect()
+    const cx = Math.min(Math.max(rect.left + rect.width / 2, 130), window.innerWidth - 130)
+    hintSeqRef.current += 1
+    setHint({
+      key: hintSeqRef.current,
+      text,
+      x: cx - hostRect.left,
+      y: (above ? rect.top - hostRect.top - 8 : rect.bottom - hostRect.top + 8),
+      above,
+    })
+  }
+
+  /** Dismiss the hint bubble (pointer left, or the 2s animation ended). */
+  const hideHint = (): void => { setHint(null) }
 
   // When the panel OPENS at a dragged (left/top) position, nudge it back
   // inside the viewport once so it renders fully. Runs only on the open
@@ -1223,7 +1271,7 @@ export function TokenHud({ t, sessionsList }: {
 
   if (snapshot === null) {
     return (
-      <div className={css.host} style={{ ...hostStyle, cursor: 'grab' }} data-token-hud
+      <div ref={hostRef} className={css.host} style={{ ...hostStyle, cursor: 'grab' }} data-token-hud
         {...dragHandlers} onPointerUp={onPillPointerUp}>
         <CollapsedChip total={0} t={t} />
       </div>
@@ -1231,7 +1279,7 @@ export function TokenHud({ t, sessionsList }: {
   }
 
   return (
-    <div className={css.host} style={hostStyle} data-token-hud>
+    <div ref={hostRef} className={css.host} style={hostStyle} data-token-hud>
       {pressMenu && (
         <div className={css.pressMenu} data-press-menu>
           <button
@@ -1305,6 +1353,17 @@ export function TokenHud({ t, sessionsList }: {
       {toast !== null && (
         <div className={css.toast} data-toast>{toast}</div>
       )}
+      {hint !== null && (
+        <div
+          key={hint.key}
+          className={css.rowHint}
+          data-above={hint.above || undefined}
+          style={{ left: hint.x, top: hint.y }}
+          onAnimationEnd={hideHint}
+        >
+          {hint.text}
+        </div>
+      )}
       {!open && (
         <div
           {...dragHandlers}
@@ -1374,7 +1433,7 @@ export function TokenHud({ t, sessionsList }: {
                   return (
                     <>
                       {rows.map((row) => (
-                        <SessionRow key={row.sessionId} row={row} prices={prices} rangeMs={rangeMs} now={now} t={t} />
+                        <SessionRow key={row.sessionId} row={row} prices={prices} rangeMs={rangeMs} now={now} t={t} onHint={showHint} onHintEnd={hideHint} />
                       ))}
                       {!showAll && others.length > 0 && (
                         <button type="button" className={css.moreButton} onClick={() => { setShowAll(true) }}>
@@ -1414,7 +1473,11 @@ export function TokenHud({ t, sessionsList }: {
             </span>
             <span className={css.footRight}>
               {balance?.available === true && balance.value !== undefined && (
-                <span className={css.footBalance} title={t('balanceTitle')}>
+                <span
+                  className={css.footBalance}
+                  onPointerEnter={(event) => { showHint(t('balanceTitle'), event.currentTarget, true) }}
+                  onPointerLeave={hideHint}
+                >
                   ¥{balance.value.toFixed(2)}
                 </span>
               )}

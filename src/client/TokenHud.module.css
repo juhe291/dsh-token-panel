@@ -66,6 +66,43 @@
   bottom: auto;
 }
 
+/* JS-driven hover hint bubble (session rows + footer balance). Rendered
+   inside .host so it floats over the scrolling row list without clipping;
+   fades in, holds ~1.5s, then disappears on its own like the pill hint. */
+.rowHint {
+  position: absolute;
+  z-index: 60;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-line-strong) 58%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 95%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent);
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--token-panel-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  opacity: 0;
+  pointer-events: none;
+  animation: hudHint 2s ease forwards;
+}
+
+/* Above-anchored variant (footer balance): bubble sits above the element. */
+.rowHint[data-above] {
+  animation: hudHintUp 2s ease forwards;
+}
+
+@keyframes hudHintUp {
+  0% { opacity: 0; transform: translateX(-50%) translateY(calc(-100% - 2px)); }
+  10% { opacity: 1; transform: translateX(-50%) translateY(-100%); }
+  70% { opacity: 1; transform: translateX(-50%) translateY(-100%); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-100%); }
+}
+
 .pressMenu {
   position: absolute;
   bottom: 46px;
