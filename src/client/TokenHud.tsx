@@ -953,7 +953,6 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
       {hasData && (
         <section className={css.section}>
           <div className={css.sectionLabel}>
-            <span>{t('trendTitle')}</span>
             <div className={css.viewBar} role="group" aria-label={t('granularity')}>
               <button type="button" className={css.viewButton} data-active={subView === 'days'} onClick={() => { setListExpanded(false); setSubView('days') }}>{t('byDay')}</button>
               <button type="button" className={css.viewButton} data-active={subView === 'months'} onClick={() => { setListExpanded(false); setSubView('months') }}>{t('byMonth')}</button>

@@ -831,9 +831,10 @@
 }
 
 .statsTotalLabel {
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  color: var(--dsw-alias-label-primary);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
 .statsTotalRow {
@@ -845,7 +846,7 @@
 
 .statsTotal .mono {
   color: var(--dsw-alias-state-business-primary);
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 700;
 }
 
@@ -862,7 +863,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 3px 2px 1px;
+  padding: 2px 2px 0;
 }
 
 .editLabel {

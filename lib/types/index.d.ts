@@ -34,8 +34,9 @@ export interface Config {
     pricePerMOutput: number;
     /** Pricing mode: 'flat' uses the fixed prices above; 'peak-offpeak' switches
      *  by Beijing time (peak 9-12 & 14-18, off-peak otherwise) using the
-     *  peak/off-peak price keys below. */
-    priceMode: 'flat' | 'peak-offpeak';
+     *  peak/off-peak price keys below; 'auto' = flat before 2026-08-17 and
+     *  peak-offpeak from that date on (the official revision date). */
+    priceMode: 'flat' | 'peak-offpeak' | 'auto';
     /** Peak-period uncached input price (CNY / 1M tokens). */
     pricePeakInput: number;
     /** Peak-period cache-hit price (CNY / 1M tokens). */
@@ -196,6 +197,9 @@ export declare class TokenPanelService extends Service {
     private saveKnownSessions;
     /** Resolve the price table currently in effect (flat or peak/off-peak). */
     resolvePrices(now: number): PriceEstimate;
+    /** Which pricing family applies: 'auto' = flat before 2026-08-17
+     *  (Beijing midnight), peak-offpeak from that date onward. */
+    private effectiveMode;
     /** Beijing peak hours: 9-12 and 14-18. */
     private isPeakNow;
     /** Resolve the per-model price table in effect right now (flat/peak/offpeak). */

@@ -45,8 +45,9 @@ export interface Config {
   pricePerMOutput: number
   /** Pricing mode: 'flat' uses the fixed prices above; 'peak-offpeak' switches
    *  by Beijing time (peak 9-12 & 14-18, off-peak otherwise) using the
-   *  peak/off-peak price keys below. */
-  priceMode: 'flat' | 'peak-offpeak'
+   *  peak/off-peak price keys below; 'auto' = flat before 2026-08-17 and
+   *  peak-offpeak from that date on (the official revision date). */
+  priceMode: 'flat' | 'peak-offpeak' | 'auto'
   /** Peak-period uncached input price (CNY / 1M tokens). */
   pricePeakInput: number
   /** Peak-period cache-hit price (CNY / 1M tokens). */
@@ -118,7 +119,7 @@ export const Config: z<Config> = z.object({
   pricePerMInput: z.number().default(1),
   pricePerMCacheRead: z.number().default(0.02),
   pricePerMOutput: z.number().default(2),
-  priceMode: z.union([z.const('flat'), z.const('peak-offpeak')]).default('flat'),
+  priceMode: z.union([z.const('flat'), z.const('peak-offpeak'), z.const('auto')]).default('auto'),
   // 2026-08-17 peak/off-peak schedule (Beijing time): peak 9-12 & 14-18.
   pricePeakInput: z.number().default(3),
   pricePeakCacheRead: z.number().default(0.1),
@@ -357,7 +358,7 @@ export class TokenPanelService extends Service {
   /** Resolve the price table currently in effect (flat or peak/off-peak). */
   resolvePrices(now: number): PriceEstimate {
     const peak = this.isPeakNow(now)
-    if (this.config.priceMode !== 'peak-offpeak') {
+    if (this.effectiveMode(now) === 'flat') {
       return {
         input: this.config.pricePerMInput,
         cacheRead: this.config.pricePerMCacheRead,
@@ -380,6 +381,16 @@ export class TokenPanelService extends Service {
         }
   }
 
+  /** Which pricing family applies: 'auto' = flat before 2026-08-17
+   *  (Beijing midnight), peak-offpeak from that date onward. */
+  private effectiveMode(now: number): 'flat' | 'peak-offpeak' {
+    const mode = this.config.priceMode
+    if (mode === 'flat' || mode === 'peak-offpeak') return mode
+    // auto: the official peak/off-peak revision takes effect 2026-08-17 00:00 CST.
+    const REVISION_MS = Date.UTC(2026, 7, 16, 16, 0, 0) // 2026-08-17 00:00 +08:00
+    return now >= REVISION_MS ? 'peak-offpeak' : 'flat'
+  }
+
   /** Beijing peak hours: 9-12 and 14-18. */
   private isPeakNow(now: number): boolean {
     const beijing = new Date(now + 8 * 3_600_000)
@@ -389,7 +400,7 @@ export class TokenPanelService extends Service {
 
   /** Resolve the per-model price table in effect right now (flat/peak/offpeak). */
   resolveModelPrices(now: number): Record<string, PriceTier> {
-    const tier = this.config.priceMode === 'peak-offpeak'
+    const tier = this.effectiveMode(now) === 'peak-offpeak'
       ? (this.isPeakNow(now) ? 'peak' : 'offpeak')
       : 'flat'
     const tables = this.config.modelPrices ?? {}

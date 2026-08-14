@@ -13,10 +13,10 @@
       config:
         # Poll cadence hint consumed by the browser panel (ms).
         pollInterval: 1500
-        # Pricing mode: 'flat' uses the flat table (official until 2026-08-17).
-        # Switch to 'peak-offpeak' after 2026-08-17 when the peak/off-peak
-        # schedule (Beijing 9-12 & 14-18) takes effect.
-        priceMode: flat
+        # Pricing mode: 'auto' = flat table now, switches to peak/off-peak
+        # automatically on 2026-08-17 (the official revision date, Beijing
+        # 9-12 & 14-18 peak). Force 'flat' or 'peak-offpeak' to pin a mode.
+        priceMode: auto
         # Global fallback prices in CNY per 1M tokens (used for models not
         # listed in modelPrices; defaults = deepseek-v4-flash table).
         pricePerMInput: 1
