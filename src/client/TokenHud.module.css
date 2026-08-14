@@ -72,6 +72,28 @@
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+.pressMenuLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pressMenuCaret {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 10px;
+}
+
+.pressSubMenu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 6px 2px;
+  padding: 4px;
+  border-left: 2px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 40%, transparent);
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--dsw-alias-bg-module) 50%, transparent);
+}
+
 .chip {
   display: inline-flex;
   align-items: center;

@@ -126,6 +126,57 @@ export interface BalanceInfo {
   readonly at?: number
 }
 
+/** The user-defined default position (discriminated union). */
+export type DefaultPos =
+  | { readonly kind: 'corner' }
+  | { readonly kind: 'preset'; readonly preset: 'tl' | 'tr' | 'bl' | 'br' }
+  | { readonly kind: 'custom'; readonly x: number; readonly y: number }
+
+/** Preset corner → screen coordinates for the panel (360 wide, ~520 tall). */
+function presetCornerPosition(preset: 'tl' | 'tr' | 'bl' | 'br'): { x: number; y: number } {
+  const margin = 12
+  const w = 360
+  const h = 520
+  const maxX = Math.max(margin, window.innerWidth - w - margin)
+  const maxY = Math.max(margin, window.innerHeight - h - margin)
+  switch (preset) {
+    case 'tl': return { x: margin, y: margin }
+    case 'tr': return { x: maxX, y: margin }
+    case 'bl': return { x: margin, y: maxY }
+    case 'br': return { x: maxX, y: maxY }
+  }
+}
+
+/** Localized label for a preset corner id. */
+function cornerLabel(preset: 'tl' | 'tr' | 'bl' | 'br', t: Translate): string {
+  switch (preset) {
+    case 'tl': return t('cornerTL')
+    case 'tr': return t('cornerTR')
+    case 'bl': return t('cornerBL')
+    case 'br': return t('cornerBR')
+  }
+}
+
+/** Small stroke icons for the long-press menu (match the DSH icon style). */
+function MenuIcon({ d }: { readonly d: string }) {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"
+      fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  )
+}
+
+/** Icon paths: back-arrow, crosshair (custom), corner brackets (presets). */
+const ICON_BACK = 'M3 8h8M8.5 4.5 12 8l-3.5 3.5M13 3v10'
+const ICON_CROSSHAIR = 'M8 1.5v3m0 7v3M1.5 8h3m7 0h3M8 8l.01 0M8 5.8A2.2 2.2 0 1 0 8 10.2 2.2 2.2 0 0 0 8 5.8Z'
+const ICON_CORNER: Record<'tl' | 'tr' | 'bl' | 'br', string> = {
+  tl: 'M1.5 6V1.5H6M1.5 1.5 6 6',
+  tr: 'M10 1.5h4.5V6M14.5 1.5 10 6',
+  bl: 'M1.5 10v4.5H6M1.5 14.5 6 10',
+  br: 'M14.5 10v4.5H10M14.5 14.5 10 10',
+}
+
 /** Localized copy contract for the HUD (en/zh dictionaries in index.tsx). */
 export interface TokenHudLocale {
   readonly token: string
@@ -179,16 +230,29 @@ export interface TokenHudLocale {
   readonly openPanel: string
   /** Tooltip hint for the draggable title bar. */
   readonly dragHint: string
-  /** Long-press menu: reset the panel to the default corner. */
+  /** Long-press menu: back to the current default position. */
+  readonly backToDefault: string
+  /** Long-press menu: back to the bottom-right corner (system default). */
   readonly backToCorner: string
   /** Toast after resetting to the corner. */
   readonly backToCornerDone: string
+  /** Long-press menu: position submenu entry. */
+  readonly positionMenu: string
+  /** Position presets. */
+  readonly cornerTL: string
+  readonly cornerTR: string
+  readonly cornerBL: string
+  readonly cornerBR: string
+  /** Custom position (drag-to-save) entry. */
+  readonly customPos: string
   /** Long-press menu: enter "set default position" capture mode. */
   readonly setAsDefault: string
   /** Toast while in capture mode: drag to a new spot and release. */
   readonly setDefaultHint: string
   /** Toast after the default position was saved. */
   readonly defaultSaved: string
+  /** Toast template: default set to a preset '{pos}'. */
+  readonly defaultSetTo: string
   /** Long-press menu: dismiss. */
   readonly cancelMenu: string
   /** Template: '{pct}' is replaced with the percent number. */
@@ -724,13 +788,20 @@ export function TokenHud({ t, sessionsList }: {
   const [showAll, setShowAll] = useState(false)
   const inFlight = useRef(false)
 
-  /** User-defined initial position (null = system bottom-right corner). */
-  const [defaultPos, setDefaultPos] = useState<{ x: number; y: number } | null>(() => {
+  /** User-defined initial position with its display label.
+   *  `corner` = system bottom-right; `preset:<id>` = a preset corner;
+   *  otherwise a custom dragged position. */
+  const [defaultPos, setDefaultPos] = useState<DefaultPos | null>(() => {
     try {
       const raw = window.localStorage.getItem('dsh-token-panel-default-pos')
       if (raw === null) return null
-      const parsed = JSON.parse(raw) as { x: number; y: number }
-      if (typeof parsed.x === 'number' && typeof parsed.y === 'number') return parsed
+      const parsed = JSON.parse(raw) as DefaultPos
+      if (parsed !== null && typeof parsed === 'object'
+        && ((parsed.kind === 'corner')
+          || (parsed.kind === 'preset' && typeof parsed.preset === 'string')
+          || (parsed.kind === 'custom' && typeof parsed.x === 'number' && typeof parsed.y === 'number'))) {
+        return parsed
+      }
       return null
     } catch {
       return null
@@ -758,6 +829,8 @@ export function TokenHud({ t, sessionsList }: {
   const longPressTriggeredRef = useRef(false)
   /** Long-press menu state (opened by holding the pill 600ms without moving). */
   const [pressMenu, setPressMenu] = useState(false)
+  /** Position submenu expanded inside the long-press menu. */
+  const [pressSubMenu, setPressSubMenu] = useState(false)
   /** "Set default position" capture mode: the next drag saves the position. */
   const [settingDefault, setSettingDefault] = useState(false)
   const settingDefaultRef = useRef(false)
@@ -863,15 +936,18 @@ export function TokenHud({ t, sessionsList }: {
     }
     const rawX = drag.baseX + dx
     const rawY = drag.baseY + dy
-    // Clamp into the viewport so the pill/panel can never be dragged
-    // fully off-screen. Measure the HUD root itself, not the handle.
+    // Clamp with a visible sliver: the HUD may hang off-screen but must keep
+    // at least 48px visible so it can always be grabbed back.
     const hostEl = (event.currentTarget as HTMLElement).closest('[data-token-hud]')
     const size = hostEl !== null ? hostEl.getBoundingClientRect() : event.currentTarget.getBoundingClientRect()
-    const maxX = Math.max(8, window.innerWidth - size.width - 8)
-    const maxY = Math.max(8, window.innerHeight - size.height - 8)
+    const VISIBLE = 48
+    const minX = VISIBLE - size.width
+    const maxX = window.innerWidth - VISIBLE
+    const minY = VISIBLE - size.height
+    const maxY = window.innerHeight - VISIBLE
     drag.last = {
-      x: Math.min(Math.max(rawX, 8), maxX),
-      y: Math.min(Math.max(rawY, 8), maxY),
+      x: Math.min(Math.max(rawX, minX), maxX),
+      y: Math.min(Math.max(rawY, minY), maxY),
     }
     setPosition(drag.last)
   }
@@ -887,12 +963,13 @@ export function TokenHud({ t, sessionsList }: {
     dragState.current = null
     if (moved) {
       if (settingDefaultRef.current) {
-        // Capture mode: this drag defines the new default position.
-        setDefaultPos(final)
+        // Capture mode: this drag defines the new custom default position.
+        const next: DefaultPos = { kind: 'custom', x: final.x, y: final.y }
+        setDefaultPos(next)
         setSettingDefaultBoth(false)
         showToast(t('defaultSaved'))
         try {
-          window.localStorage.setItem('dsh-token-panel-default-pos', JSON.stringify(final))
+          window.localStorage.setItem('dsh-token-panel-default-pos', JSON.stringify(next))
         } catch {
           // Storage unavailable; the default simply resets next load.
         }
@@ -909,9 +986,16 @@ export function TokenHud({ t, sessionsList }: {
     }
   }
 
-  /** Back to the system bottom-right corner and forget the saved position. */
+  /** Back to the user-defined default position (preset or custom). */
   const goToDefault = (): void => {
-    setPosition(null)
+    const def = defaultPos
+    if (def === null || def.kind === 'corner') {
+      setPosition(null)
+    } else if (def.kind === 'preset') {
+      setPosition(presetCornerPosition(def.preset))
+    } else {
+      setPosition({ x: def.x, y: def.y })
+    }
     setPressMenu(false)
     setSettingDefaultBoth(false)
     showToast(t('backToCornerDone'))
@@ -919,6 +1003,22 @@ export function TokenHud({ t, sessionsList }: {
       window.localStorage.removeItem('dsh-token-panel-pos')
     } catch {
       // Storage unavailable; position simply resets next load.
+    }
+  }
+
+  /** Apply a preset corner as the default position (and move there now). */
+  const applyPreset = (preset: 'tl' | 'tr' | 'bl' | 'br'): void => {
+    const next: DefaultPos = { kind: 'preset', preset }
+    setDefaultPos(next)
+    setPosition(presetCornerPosition(preset))
+    setPressMenu(false)
+    setSettingDefaultBoth(false)
+    showToast(fill(t('defaultSetTo'), { pos: cornerLabel(preset, t) }))
+    try {
+      window.localStorage.setItem('dsh-token-panel-default-pos', JSON.stringify(next))
+      window.localStorage.removeItem('dsh-token-panel-pos')
+    } catch {
+      // Storage unavailable; the default simply resets next load.
     }
   }
 
@@ -1070,21 +1170,61 @@ export function TokenHud({ t, sessionsList }: {
             className={css.pressMenuItem}
             onClick={() => { goToDefault(); suppressClickUntilRef.current = 0 }}
           >
-            ↺ {t('backToCorner')}
+            <span className={css.pressMenuLabel}>
+              <MenuIcon d={ICON_BACK} />
+              {defaultPos === null || defaultPos.kind === 'corner'
+                ? t('backToCorner')
+                : defaultPos.kind === 'preset'
+                  ? `${t('backToDefault')} · ${cornerLabel(defaultPos.preset, t)}`
+                  : t('backToDefault')}
+            </span>
           </button>
           <button
             type="button"
             className={css.pressMenuItem}
-            onClick={() => { startSetDefault(); suppressClickUntilRef.current = 0 }}
+            onPointerEnter={() => { setPressSubMenu(true) }}
+            onClick={() => { setPressSubMenu((current) => !current) }}
+            aria-expanded={pressSubMenu}
           >
-            📍 {t('setAsDefault')}
+            <span className={css.pressMenuLabel}>
+              <MenuIcon d={ICON_CROSSHAIR} />
+              {t('positionMenu')}
+            </span>
+            <span className={css.pressMenuCaret}>▸</span>
           </button>
+          {pressSubMenu && (
+            <div className={css.pressSubMenu} data-press-menu>
+              {(['tr', 'tl', 'bl', 'br'] as const).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className={css.pressMenuItem}
+                  onClick={() => { applyPreset(preset); suppressClickUntilRef.current = 0 }}
+                >
+                  <span className={css.pressMenuLabel}>
+                    <MenuIcon d={ICON_CORNER[preset]} />
+                    {cornerLabel(preset, t)}
+                  </span>
+                </button>
+              ))}
+              <button
+                type="button"
+                className={css.pressMenuItem}
+                onClick={() => { startSetDefault(); suppressClickUntilRef.current = 0 }}
+              >
+                <span className={css.pressMenuLabel}>
+                  <MenuIcon d={ICON_CROSSHAIR} />
+                  {t('customPos')}
+                </span>
+              </button>
+            </div>
+          )}
           <button
             type="button"
             className={css.pressMenuItem}
-            onClick={() => { setPressMenu(false) }}
+            onClick={() => { setPressMenu(false); setPressSubMenu(false) }}
           >
-            {t('cancelMenu')}
+            <span className={css.pressMenuLabel}>{t('cancelMenu')}</span>
           </button>
         </div>
       )}
