@@ -195,6 +195,34 @@ export interface TokenHudLocale {
     readonly cancelMenu: string;
     /** Template: '{pct}' is replaced with the percent number. */
     readonly contextBar: string;
+    /** Section title: live consumption trend. */
+    readonly trendTitle: string;
+    /** Section title: sessions list. */
+    readonly sessionTitle: string;
+    /** Section title: stats summary. */
+    readonly summaryTitle: string;
+    /** Peak generation speed label (live view). */
+    readonly peakLabel: string;
+    /** Template: '{count}' active sessions. */
+    readonly sessionsActive: string;
+    /** Template: '{count}' days/months in the daily/monthly list. */
+    readonly daysCount: string;
+    readonly monthsCount: string;
+    /** Templates: expand/collapse the daily/monthly list. */
+    readonly expandDays: string;
+    readonly expandMonths: string;
+    readonly collapseList: string;
+    /** Hover hint on the editable budget/balance values. */
+    readonly editHint: string;
+    /** Toast after saving an edited value. */
+    readonly editSaved: string;
+    /** Note under the editable rows. */
+    readonly balanceLocalNote: string;
+    /** Footer: current cost label. */
+    readonly costNow: string;
+    /** aria-labels for the inline editors. */
+    readonly budgetInput: string;
+    readonly balanceInput: string;
 }
 type Translate = (key: keyof TokenHudLocale) => string;
 /** The top-level HUD: polling, view switching and layout. */

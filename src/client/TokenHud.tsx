@@ -267,6 +267,34 @@ export interface TokenHudLocale {
   readonly cancelMenu: string
   /** Template: '{pct}' is replaced with the percent number. */
   readonly contextBar: string
+  /** Section title: live consumption trend. */
+  readonly trendTitle: string
+  /** Section title: sessions list. */
+  readonly sessionTitle: string
+  /** Section title: stats summary. */
+  readonly summaryTitle: string
+  /** Peak generation speed label (live view). */
+  readonly peakLabel: string
+  /** Template: '{count}' active sessions. */
+  readonly sessionsActive: string
+  /** Template: '{count}' days/months in the daily/monthly list. */
+  readonly daysCount: string
+  readonly monthsCount: string
+  /** Templates: expand/collapse the daily/monthly list. */
+  readonly expandDays: string
+  readonly expandMonths: string
+  readonly collapseList: string
+  /** Hover hint on the editable budget/balance values. */
+  readonly editHint: string
+  /** Toast after saving an edited value. */
+  readonly editSaved: string
+  /** Note under the editable rows. */
+  readonly balanceLocalNote: string
+  /** Footer: current cost label. */
+  readonly costNow: string
+  /** aria-labels for the inline editors. */
+  readonly budgetInput: string
+  readonly balanceInput: string
 }
 
 type Translate = (key: keyof TokenHudLocale) => string
@@ -687,14 +715,26 @@ function StatBar({ label, value, max, input, output, cacheRead, cacheWrite, cost
   )
 }
 
-/** The stats view: per-month and per-day usage bars, switched separately. */
-function StatsView({ stats, t, balance, budgetMonthly }: {
+/** The stats view: summary, trend and daily/monthly bars (collapsible). */
+function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
+  editing, setEditing, editDraft, setEditDraft, editInputRef, onSave, onHint, onHintEnd }: {
   readonly stats: TokenStats | null
   readonly t: Translate
-  readonly balance: BalanceInfo | null
   readonly budgetMonthly: number
+  readonly totalCost: number
+  readonly effectiveBalance: number | null
+  readonly editing: 'budget' | 'balance' | null
+  readonly setEditing: (kind: 'budget' | 'balance' | null) => void
+  readonly editDraft: string
+  readonly setEditDraft: (value: string) => void
+  readonly editInputRef: React.MutableRefObject<HTMLInputElement | null>
+  readonly onSave: (kind: 'budget' | 'balance', raw: string) => void
+  readonly onHint: (text: string, el: HTMLElement, above?: boolean) => void
+  readonly onHintEnd: () => void
 }) {
   const [subView, setSubView] = useState<'days' | 'months'>('days')
+  /** Daily/monthly list collapsed by default; expand reveals everything. */
+  const [listExpanded, setListExpanded] = useState(false)
 
   if (stats === null) {
     return <span className={css.empty}>{t('loading')}</span>
@@ -703,10 +743,6 @@ function StatsView({ stats, t, balance, budgetMonthly }: {
   const maxMonth = Math.max(...stats.months.map((month) => month.total), 1)
   const maxDay = Math.max(...stats.days.map((day) => day.total), 1)
   const totalAll = stats.months.reduce((sum, month) => sum + month.total, 0)
-  const totalCost = stats.months.reduce(
-    (sum, month) => sum + estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, prices),
-    0,
-  )
   const hasData = stats.months.length > 0 || stats.days.length > 0
   // Convert day/month aggregates to sparkline points (midnight / month-start timestamps).
   const dayPoints = useMemo<readonly HistoryPoint[]>(() => stats.days.map((day) => ({
@@ -723,79 +759,134 @@ function StatsView({ stats, t, balance, budgetMonthly }: {
   const monthCost = stats.months
     .filter((month) => month.month === thisMonthKey)
     .reduce((sum, month) => sum + estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, prices), 0)
+
+  /** Render the editable value: compact box with hover hint, or input when editing. */
+  const renderEditor = (kind: 'budget' | 'balance', value: number, display: string): React.ReactNode => {
+    if (editing === kind) {
+      return (
+        <input
+          ref={editInputRef}
+          className={css.editInput}
+          type="number"
+          min="0"
+          step="0.01"
+          value={editDraft}
+          aria-label={kind === 'budget' ? t('budgetInput') : t('balanceInput')}
+          onChange={(event) => { setEditDraft(event.target.value) }}
+          onBlur={() => { onSave(kind, editDraft) }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') { event.currentTarget.blur() }
+            else if (event.key === 'Escape') { setEditing(null) }
+          }}
+        />
+      )
+    }
+    return (
+      <span
+        className={css.editValue}
+        onClick={() => { setEditDraft(String(value)); setEditing(kind) }}
+        onPointerEnter={(event) => { onHint(t('editHint'), event.currentTarget, true) }}
+        onPointerLeave={onHintEnd}
+      >
+        {display}
+      </span>
+    )
+  }
+
+  const listCount = subView === 'months' ? stats.months.length : stats.days.length
+  const listItems = subView === 'months'
+    ? stats.months.map((month) => (
+      <StatBar key={month.month} label={monthLabel(month.month, t)} value={month.total} max={maxMonth}
+        input={month.input} output={month.output} cacheRead={month.cacheRead} cacheWrite={month.cacheWrite}
+        cost={estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, prices)} />
+    ))
+    : stats.days.map((day) => (
+      <StatBar key={day.date} label={dateLabel(day.date, t)} value={day.total} max={maxDay}
+        input={day.input} output={day.output} cacheRead={day.cacheRead} cacheWrite={day.cacheWrite}
+        cost={estimateCost(day.input, day.cacheRead, day.cacheWrite, day.output, prices)} />
+    ))
+
   return (
     <div className={css.statsBody}>
-      <div className={css.statsTotal}>
-        <span className={css.statsTotalLabel}>{t('totalLabel')}</span>
-        <span className={css.mono}>{formatNumber(totalAll)}</span>
-        <span className={css.statsTotalSub}>{t('totalSub')} · {t('approx')}{formatCost(totalCost)}</span>
-      </div>
-      {budgetMonthly > 0 && (
-        <div className={css.budgetRow}>
-          <span className={css.budgetLabel}>{t('budgetLabel')}</span>
-          <span className={css.budgetTrack}>
-            <span
-              className={css.budgetFill}
-              style={{ width: `${Math.min(100, (monthCost / budgetMonthly) * 100)}%` }}
-              data-over={monthCost > budgetMonthly}
-            />
-          </span>
-          <span className={css.budgetText}>
-            {formatCost(monthCost)} / {formatCost(budgetMonthly)}
-            {monthCost > budgetMonthly && ` · ${t('budgetOver')}`}
-          </span>
+      <section className={css.section}>
+        <div className={css.sectionLabel}><span>{t('summaryTitle')}</span></div>
+        <div className={css.statsTotal}>
+          <span className={css.statsTotalLabel}>{t('totalLabel')}</span>
+          <div className={css.statsTotalRow}>
+            <span className={css.mono}>{formatNumber(totalAll)}</span>
+            <span className={css.statsTotalSub}>{t('totalSub')} · {t('approx')}{formatCost(totalCost)}</span>
+          </div>
         </div>
-      )}
-      {balance?.available === true && balance.value !== undefined && (
-        <div className={css.balanceRow}>
-          <span className={css.budgetLabel}>{t('balanceLabel')}</span>
-          <span className={css.balanceValue}>¥{balance.value.toFixed(2)}</span>
-        </div>
-      )}
+        {budgetMonthly > 0 && (
+          <div className={css.editRow}>
+            <span className={css.editLabel}>{t('budgetLabel')}</span>
+            <span className={css.budgetTrack}>
+              <span
+                className={css.budgetFill}
+                style={{ width: `${Math.min(100, (monthCost / budgetMonthly) * 100)}%` }}
+                data-over={monthCost > budgetMonthly}
+              />
+            </span>
+            {renderEditor('budget', budgetMonthly, `¥${formatCost(budgetMonthly)}`)}
+          </div>
+        )}
+        {effectiveBalance !== null && (
+          <div className={`${css.editRow} ${css.balanceEditRow}`}>
+            <span className={css.editLabel}>{t('balanceLabel')}</span>
+            {renderEditor('balance', effectiveBalance, `¥${effectiveBalance.toFixed(2)}`)}
+          </div>
+        )}
+        <div className={css.editNote}>{t('balanceLocalNote')}</div>
+      </section>
+
       {hasData && (
-        <div className={css.viewBar} role="group" aria-label={t('granularity')}>
-          <button type="button" className={css.viewButton} data-active={subView === 'days'} onClick={() => { setSubView('days') }}>{t('byDay')}</button>
-          <button type="button" className={css.viewButton} data-active={subView === 'months'} onClick={() => { setSubView('months') }}>{t('byMonth')}</button>
-        </div>
-      )}
-      {subView === 'months' ? (
-        stats.months.length > 0 ? (
-          <section className={css.statsSection}>
-            <header className={css.statsSectionHead}>{t('byMonth')} · {t('all')}</header>
-            {monthPoints.length >= 1 && (
-              <div className={css.statsSparkWrap}>
+        <section className={css.section}>
+          <div className={css.sectionLabel}>
+            <span>{t('trendTitle')}</span>
+            <div className={css.viewBar} role="group" aria-label={t('granularity')}>
+              <button type="button" className={css.viewButton} data-active={subView === 'days'} onClick={() => { setListExpanded(false); setSubView('days') }}>{t('byDay')}</button>
+              <button type="button" className={css.viewButton} data-active={subView === 'months'} onClick={() => { setListExpanded(false); setSubView('months') }}>{t('byMonth')}</button>
+            </div>
+          </div>
+          <div className={css.statsSparkWrap}>
+            {subView === 'months'
+              ? (monthPoints.length >= 1 && (
                 <Sparkline points={monthPoints} now={Date.now()} height={64}
                   tickFormat={(value) => formatMonthTick(value, t)} t={t} />
-              </div>
-            )}
-            {stats.months.map((month) => (
-              <StatBar key={month.month} label={monthLabel(month.month, t)} value={month.total} max={maxMonth}
-                input={month.input} output={month.output} cacheRead={month.cacheRead} cacheWrite={month.cacheWrite}
-                cost={estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, prices)} />
-            ))}
-          </section>
-        ) : (
-          <span className={css.empty}>{t('noMonthly')}</span>
-        )
-      ) : (
-        stats.days.length > 0 ? (
-          <section className={css.statsSection}>
-            <header className={css.statsSectionHead}>{t('byDay')} · {t('all')}</header>
-            {dayPoints.length >= 1 && (
-              <div className={css.statsSparkWrap}>
+              ))
+              : (dayPoints.length >= 1 && (
                 <Sparkline points={dayPoints} now={Date.now()} height={64} tickFormat={formatDateTick} t={t} />
-              </div>
-            )}
-            {stats.days.map((day) => (
-              <StatBar key={day.date} label={dateLabel(day.date, t)} value={day.total} max={maxDay}
-                input={day.input} output={day.output} cacheRead={day.cacheRead} cacheWrite={day.cacheWrite}
-                cost={estimateCost(day.input, day.cacheRead, day.cacheWrite, day.output, prices)} />
-            ))}
-          </section>
-        ) : (
-          <span className={css.empty}>{t('noDaily')}</span>
-        )
+              ))}
+          </div>
+        </section>
       )}
+
+      {hasData && listCount > 0 && (
+        <section className={css.section}>
+          <div className={css.sectionLabel}>
+            <span>{subView === 'months' ? t('byMonth') : t('byDay')}</span>
+            <span className={css.sectionCount}>
+              {subView === 'months'
+                ? fill(t('monthsCount'), { count: listCount })
+                : fill(t('daysCount'), { count: listCount })}
+            </span>
+          </div>
+          {listExpanded && listItems}
+          <button
+            type="button"
+            className={css.moreButton}
+            onClick={() => { setListExpanded((current) => !current) }}
+          >
+            <span className={css.moreCaret}>{listExpanded ? '▴' : '▾'}</span>
+            {listExpanded
+              ? t('collapseList')
+              : subView === 'months'
+                ? fill(t('expandMonths'), { count: listCount })
+                : fill(t('expandDays'), { count: listCount })}
+          </button>
+        </section>
+      )}
+
       {!hasData && (
         <span className={css.empty}>{t('noStats')}</span>
       )}
@@ -818,6 +909,61 @@ export function TokenHud({ t, sessionsList }: {
   const [now, setNow] = useState<number>(Date.now())
   const [showAll, setShowAll] = useState(false)
   const inFlight = useRef(false)
+
+  /** User-defined monthly budget in CNY (overrides the host setting). */
+  const [userBudget, setUserBudget] = useState<number | null>(() => {
+    try {
+      const raw = window.localStorage.getItem('dsh-token-panel-budget')
+      const parsed = raw === null ? null : Number(raw)
+      return parsed !== null && Number.isFinite(parsed) && parsed > 0 ? parsed : null
+    } catch {
+      return null
+    }
+  })
+  /** User-defined account balance: value + cumulative cost at save time.
+   *  Effective balance = value − (current cumulative cost − baseline). */
+  const [userBalance, setUserBalance] = useState<{ value: number; baseline: number } | null>(() => {
+    try {
+      const raw = window.localStorage.getItem('dsh-token-panel-balance')
+      if (raw === null) return null
+      const parsed = JSON.parse(raw) as { value: number; baseline: number }
+      if (parsed !== null && typeof parsed === 'object'
+        && typeof parsed.value === 'number' && Number.isFinite(parsed.value)
+        && typeof parsed.baseline === 'number' && Number.isFinite(parsed.baseline)) {
+        return parsed
+      }
+      return null
+    } catch {
+      return null
+    }
+  })
+  /** Which editable value is being edited: 'budget' | 'balance' | null. */
+  const [editing, setEditing] = useState<'budget' | 'balance' | null>(null)
+  const [editDraft, setEditDraft] = useState('')
+  const editInputRef = useRef<HTMLInputElement | null>(null)
+
+  const saveEdit = (kind: 'budget' | 'balance', raw: string): void => {
+    const value = Number(raw.trim())
+    if (!Number.isFinite(value) || value < 0) {
+      setEditing(null)
+      return
+    }
+    if (kind === 'budget') {
+      if (value <= 0) { setEditing(null); return }
+      setUserBudget(value)
+      window.localStorage.setItem('dsh-token-panel-budget', String(value))
+    } else {
+      setUserBalance({ value, baseline: totalCostNow })
+      window.localStorage.setItem('dsh-token-panel-balance', JSON.stringify({ value, baseline: totalCostNow }))
+    }
+    setEditing(null)
+    showToast(t('editSaved'))
+  }
+
+  /** Focus the inline editor as soon as it mounts. */
+  useEffect(() => {
+    if (editing !== null) editInputRef.current?.focus()
+  }, [editing, editInputRef])
 
   /** User-defined initial position with its display label.
    *  `corner` = system bottom-right; `preset:<id>` = a preset corner;
@@ -1245,7 +1391,22 @@ export function TokenHud({ t, sessionsList }: {
 
   const prices = snapshot?.prices ?? { input: 1, cacheRead: 0.02, output: 2 }
   const tps = snapshot?.tps ?? 0
-  const budgetMonthly = snapshot?.budgetMonthly ?? 0
+  const budgetMonthly = userBudget ?? snapshot?.budgetMonthly ?? 0
+
+  /** Cumulative estimated cost across all recorded months (local balance basis). */
+  const totalCostNow = useMemo(() => {
+    if (stats === null) return 0
+    const sp = stats.prices ?? { input: 1, cacheRead: 0.02, output: 2 }
+    return stats.months.reduce(
+      (sum, month) => sum + estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, sp),
+      0,
+    )
+  }, [stats])
+
+  /** Effective balance: user-defined value minus locally estimated spending. */
+  const effectiveBalance = userBalance !== null
+    ? Math.max(0, userBalance.value - Math.max(0, totalCostNow - userBalance.baseline))
+    : (balance?.available === true && balance.value !== undefined ? balance.value : null)
 
   const topHistory = useMemo(() => {
     if (snapshot === null || snapshot.sessions.length === 0) return []
@@ -1257,6 +1418,22 @@ export function TokenHud({ t, sessionsList }: {
     // Per-tick consumption deltas: idle ticks drop to zero.
     return toConsumption(filterRange(source?.history ?? [], now, rangeMs))
   }, [snapshot, now, rangeMs, currentSessionId])
+
+  /** Peak consumption rate (tokens/second) inside the selected window. */
+  const peakRate = useMemo(() => {
+    if (topHistory.length < 2) return 0
+    let peak = 0
+    for (let i = 1; i < topHistory.length; i++) {
+      const prev = topHistory[i - 1]
+      const point = topHistory[i]
+      if (prev === undefined || point === undefined) continue
+      const dt = (point.t - prev.t) / 1000
+      if (dt <= 0) continue
+      const rate = point.total / dt
+      if (rate > peak) peak = rate
+    }
+    return peak
+  }, [topHistory])
 
   const dragHandlers = {
     onPointerDown: onDragStart,
@@ -1397,36 +1574,53 @@ export function TokenHud({ t, sessionsList }: {
             </button>
           </header>
           {view === 'live' ? (
-            <>
+            <div className={css.body}>
               {topHistory.length >= 2 && (
-                <div className={css.sparkWrap}>
-                  <div className={css.rangeBar} role="group" aria-label={t('timeRange')}>
-                    {RANGES.map((range) => (
-                      <button
-                        key={range.label}
-                        type="button"
-                        className={css.rangeButton}
-                        data-active={range.ms === rangeMs}
-                        onClick={() => { setRangeMs(range.ms) }}
-                      >
-                        {range.label}
-                      </button>
-                    ))}
+                <section className={css.section}>
+                  <div className={css.sectionLabel}>
+                    <span>{t('trendTitle')}</span>
+                    <div className={css.rangeBar} role="group" aria-label={t('timeRange')}>
+                      {RANGES.map((range) => (
+                        <button
+                          key={range.label}
+                          type="button"
+                          className={css.rangeButton}
+                          data-active={range.ms === rangeMs}
+                          onClick={() => { setRangeMs(range.ms) }}
+                        >
+                          {range.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <Sparkline points={topHistory} now={now} t={t} />
-                </div>
+                  {peakRate > 0 && (
+                    <div className={css.peakRow}>
+                      <span className={css.peakDot} aria-hidden />
+                      <span>{t('peakLabel')}</span>
+                      <span className={css.peakValue}>{peakRate >= 10 ? Math.round(peakRate) : peakRate.toFixed(1)}</span>
+                      <span className={css.peakUnit}>t/s</span>
+                    </div>
+                  )}
+                  <div className={css.sparkWrap}>
+                    <Sparkline points={topHistory} now={now} t={t} />
+                  </div>
+                </section>
               )}
-              <div className={css.body}>
+              <section className={css.section}>
+                <div className={css.sectionLabel}>
+                  <span>{t('sessionTitle')}</span>
+                  <span className={css.sectionCount}>{fill(t('sessionsActive'), { count: snapshot.sessions.length })}</span>
+                </div>
                 {(() => {
-                  // The current (open) conversation is always shown first;
-                  // other sessions are hidden unless "show all" is toggled.
+                  // Only the current (open) conversation is shown by default;
+                  // other sessions appear after "expand all" is toggled.
                   const current = currentSessionId !== undefined
                     ? snapshot.sessions.find((row) => row.sessionId === currentSessionId)
                     : undefined
                   const others = snapshot.sessions.filter((row) => row.sessionId !== current?.sessionId)
                   const rows = current !== undefined
                     ? [current, ...(showAll ? others : [])]
-                    : (showAll ? snapshot.sessions : snapshot.sessions.slice(0, 3))
+                    : (showAll ? snapshot.sessions : snapshot.sessions.slice(0, 1))
                   if (rows.length === 0 && others.length === 0) {
                     return <span className={css.empty}>{t('noSessions')}</span>
                   }
@@ -1437,22 +1631,27 @@ export function TokenHud({ t, sessionsList }: {
                       ))}
                       {!showAll && others.length > 0 && (
                         <button type="button" className={css.moreButton} onClick={() => { setShowAll(true) }}>
+                          <span className={css.moreCaret}>▾</span>
                           {fill(t('expandAll'), { count: others.length })}
                         </button>
                       )}
                       {showAll && others.length > 0 && (
                         <button type="button" className={css.moreButton} onClick={() => { setShowAll(false) }}>
+                          <span className={css.moreCaret}>▴</span>
                           {t('collapseAll')}
                         </button>
                       )}
                     </>
                   )
                 })()}
-              </div>
-            </>
+              </section>
+            </div>
           ) : (
             <div className={css.body}>
-              <StatsView stats={stats} t={t} balance={balance} budgetMonthly={budgetMonthly} />
+              <StatsView stats={stats} t={t} budgetMonthly={budgetMonthly}
+                totalCost={totalCostNow} effectiveBalance={effectiveBalance}
+                editing={editing} setEditing={setEditing} editDraft={editDraft} setEditDraft={setEditDraft}
+                editInputRef={editInputRef} onSave={saveEdit} onHint={showHint} onHintEnd={hideHint} />
             </div>
           )}
           <footer className={css.foot}>
@@ -1472,15 +1671,9 @@ export function TokenHud({ t, sessionsList }: {
               )}
             </span>
             <span className={css.footRight}>
-              {balance?.available === true && balance.value !== undefined && (
-                <span
-                  className={css.footBalance}
-                  onPointerEnter={(event) => { showHint(t('balanceTitle'), event.currentTarget, true) }}
-                  onPointerLeave={hideHint}
-                >
-                  ¥{balance.value.toFixed(2)}
-                </span>
-              )}
+              <span className={css.footCost}>
+                {t('costNow')} <b>¥{totalCostNow.toFixed(2)}</b>
+              </span>
               <span className={css.mono}>{new Date(snapshot.generatedAt).toLocaleTimeString()}</span>
             </span>
           </footer>

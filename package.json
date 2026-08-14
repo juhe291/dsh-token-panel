@@ -1,6 +1,6 @@
 {
   "name": "dsh-token-panel",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Real-time token consumption HUD for DeepSeek Harness: a sleek tech-style panel showing live token usage, context pressure and cost estimates across sessions",
   "type": "module",
   "main": "lib/index.js",
