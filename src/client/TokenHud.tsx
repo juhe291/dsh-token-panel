@@ -553,7 +553,7 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
       </defs>
       {path.kind === 'line' && yLabels.map((label) => (
         <line key={label.y} x1={AXIS_W} y1={label.y} x2={width} y2={label.y}
-          stroke="var(--dsw-alias-line-normal)" strokeWidth="1" vectorEffect="non-scaling-stroke" opacity="0.5" />
+          stroke="var(--dsw-alias-border-l2)" strokeWidth="1" vectorEffect="non-scaling-stroke" opacity="0.5" />
       ))}
       {path.kind === 'line' && <path d={path.area} fill="url(#tokenSparkFill)" />}
       {path.kind === 'line' && <path d={path.line} fill="none" stroke="var(--dsw-alias-state-business-primary)"
