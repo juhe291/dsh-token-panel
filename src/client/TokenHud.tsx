@@ -840,8 +840,8 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
       <section className={css.section}>
         <div className={css.sectionLabel}><span>{t('summaryTitle')}</span></div>
         <div className={css.statsTotal}>
-          <span className={css.statsTotalLabel}>{t('totalLabel')}</span>
           <div className={css.statsTotalRow}>
+            <span className={css.statsTotalLabel}>{t('totalLabel')}</span>
             <span className={css.mono}>{formatNumber(totalAll)}</span>
             <span className={css.statsTotalSub}>{t('totalSub')} · {t('approx')}{formatCost(totalCost)}</span>
           </div>
@@ -867,7 +867,6 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
           <span className={css.editLabel}>{t('balanceLabel')}</span>
           {renderEditor('balance', effectiveBalance, effectiveBalance !== null ? `¥${effectiveBalance.toFixed(2)}` : t('notSet'))}
         </div>
-        <div className={css.editNote}>{t('balanceLocalNote')}</div>
       </section>
 
       {hasData && (
@@ -882,11 +881,11 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
           <div className={css.statsSparkWrap}>
             {subView === 'months'
               ? (monthPoints.length >= 1 && (
-                <Sparkline points={monthPoints} now={Date.now()} height={64}
+                <Sparkline points={monthPoints} now={Date.now()} height={52}
                   tickFormat={(value) => formatMonthTick(value, t)} t={t} />
               ))
               : (dayPoints.length >= 1 && (
-                <Sparkline points={dayPoints} now={Date.now()} height={64} tickFormat={formatDateTick} t={t} />
+                <Sparkline points={dayPoints} now={Date.now()} height={52} tickFormat={formatDateTick} t={t} />
               ))}
           </div>
         </section>

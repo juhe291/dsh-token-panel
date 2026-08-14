@@ -396,13 +396,19 @@
   border-color: var(--dsw-alias-line-normal);
 }
 
-/* ---- light sections: caption labels + whitespace, no card boxes ---- */
+/* ---- light sections: caption labels + whitespace + faint hairline ---- */
 .section {
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
 
 .section:last-child {
   margin-bottom: 0;
+}
+
+/* Faint hairline between blocks: separates without breaking the mood. */
+.section + .section {
+  border-top: 1px solid color-mix(in srgb, var(--dsw-alias-line-normal) 45%, transparent);
+  padding-top: 14px;
 }
 
 /* Apple-style section caption: 13px regular weight, mono stays.
@@ -816,26 +822,24 @@
 }
 
 .statsTotal {
-  padding: 0 2px 4px;
+  padding: 0 2px 8px;
 }
 
 .statsTotalLabel {
   color: var(--dsw-alias-label-tertiary);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  display: block;
-  margin-bottom: 6px;
+  letter-spacing: 0.08em;
 }
 
 .statsTotalRow {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 8px;
 }
 
 .statsTotal .mono {
   color: var(--dsw-alias-state-business-primary);
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 700;
 }
 
@@ -849,7 +853,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 7px 2px 3px;
+  padding: 5px 2px 2px;
 }
 
 .editLabel {
@@ -861,7 +865,7 @@
 }
 
 .budgetWrap {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .budgetWrap .editRow .editValue {
