@@ -13,6 +13,15 @@
 
 </div>
 
+## ✨ Highlights
+
+| 💰 **Per-model pricing** | flash / pro each billed at official rates — sessions that switch models stay accurate |
+|---|---|
+| ⏱️ **Auto peak/off-peak** | switches to peak/off-peak pricing **automatically** at the 2026-08-17 revision — no config change |
+| ✏️ **Click-to-edit budget / balance** | inline editing in the stats view; balance decreases locally with token consumption |
+| 🖱️ **Drag + long-press menu** | four corner presets + custom default position, remembered across reloads |
+| 📊 **Durable daily / monthly stats** | JSONL logs on disk, survive restarts, get richer over time |
+
 <p align="center">
   <img src="assets/hero.png" alt="dsh-token-panel cover" width="100%">
 </p>
