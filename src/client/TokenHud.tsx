@@ -233,6 +233,10 @@ export interface TokenHudLocale {
   readonly dragHint: string
   /** Long-press menu: back to the current default position. */
   readonly backToDefault: string
+  /** Long-press menu: back to a custom-saved default. */
+  readonly backToCustom: string
+  /** Toast after returning to the custom-saved default. */
+  readonly backToCustomDone: string
   /** Long-press menu: back to the bottom-right corner (system default). */
   readonly backToCorner: string
   /** Toast after resetting to the corner. */
@@ -822,7 +826,7 @@ export function TokenHud({ t, sessionsList }: {
       return null
     }
   })
-  const dragState = useRef<{ startX: number; startY: number; pointerId: number; baseX: number; baseY: number; moved: boolean; last: { x: number; y: number } } | null>(null)
+  const dragState = useRef<{ startX: number; startY: number; pointerId: number; baseX: number; baseY: number; width: number; height: number; moved: boolean; last: { x: number; y: number } } | null>(null)
   /** Timestamp until which pill clicks are swallowed (drag/hold releases).
    *  Timestamp-based so a missed click can never wedge it permanently. */
   const suppressClickUntilRef = useRef(0)
@@ -884,12 +888,17 @@ export function TokenHud({ t, sessionsList }: {
     const rect = event.currentTarget.getBoundingClientRect()
     const baseX = position?.x ?? rect.left
     const baseY = position?.y ?? rect.top
+    // Measure the whole HUD once at drag start (stable while dragging).
+    const hostEl = (event.currentTarget as HTMLElement).closest('[data-token-hud]')
+    const hostRect = hostEl !== null ? hostEl.getBoundingClientRect() : rect
     dragState.current = {
       startX: event.clientX,
       startY: event.clientY,
       pointerId: event.pointerId,
       baseX,
       baseY,
+      width: hostRect.width,
+      height: hostRect.height,
       moved: false,
       last: { x: baseX, y: baseY },
     }
@@ -941,18 +950,16 @@ export function TokenHud({ t, sessionsList }: {
     }
     const rawX = drag.baseX + dx
     const rawY = drag.baseY + dy
-    // Clamp with a visible sliver: the HUD may hang off-screen but must keep
-    // at least 48px visible so it can always be grabbed back.
-    const hostEl = (event.currentTarget as HTMLElement).closest('[data-token-hud]')
-    const size = hostEl !== null ? hostEl.getBoundingClientRect() : event.currentTarget.getBoundingClientRect()
+    // Clamp with a visible sliver on ALL four sides: the HUD may hang
+    // off-screen but must always keep at least 48px reachable.
     const VISIBLE = 48
-    const minX = VISIBLE - size.width
+    const minX = VISIBLE - drag.width
     const maxX = window.innerWidth - VISIBLE
-    const minY = VISIBLE - size.height
+    const minY = VISIBLE - drag.height
     const maxY = window.innerHeight - VISIBLE
     drag.last = {
-      x: Math.min(Math.max(rawX, minX), maxX),
-      y: Math.min(Math.max(rawY, minY), maxY),
+      x: Math.min(Math.max(rawX, minX), Math.max(maxX, minX)),
+      y: Math.min(Math.max(rawY, minY), Math.max(maxY, minY)),
     }
     setPosition(drag.last)
   }
@@ -1003,7 +1010,11 @@ export function TokenHud({ t, sessionsList }: {
     }
     setPressMenu(false)
     setSettingDefaultBoth(false)
-    showToast(t('backToCornerDone'))
+    showToast(def === null || def.kind === 'corner'
+      ? t('backToCornerDone')
+      : def.kind === 'preset'
+        ? fill(t('defaultSetTo'), { pos: cornerLabel(def.preset, t) })
+        : t('backToCustomDone'))
     try {
       window.localStorage.removeItem('dsh-token-panel-pos')
     } catch {
@@ -1176,12 +1187,18 @@ export function TokenHud({ t, sessionsList }: {
             onClick={() => { goToDefault(); suppressClickUntilRef.current = 0 }}
           >
             <span className={css.pressMenuLabel}>
-              <MenuIcon d={ICON_BACK} />
+              <MenuIcon d={
+                defaultPos === null || defaultPos.kind === 'corner'
+                  ? ICON_CORNER.br
+                  : defaultPos.kind === 'preset'
+                    ? ICON_CORNER[defaultPos.preset]
+                    : ICON_CROSSHAIR
+              } />
               {defaultPos === null || defaultPos.kind === 'corner'
                 ? t('backToCorner')
                 : defaultPos.kind === 'preset'
                   ? `${t('backToDefault')} · ${cornerLabel(defaultPos.preset, t)}`
-                  : t('backToDefault')}
+                  : t('backToCustom')}
             </span>
           </button>
           <button
@@ -1247,8 +1264,8 @@ export function TokenHud({ t, sessionsList }: {
       )}
       {open && (
         <aside className={css.panel} data-token-panel ref={panelRef}>
-          <header className={css.head} {...dragHandlers}>
-            <span className={css.title} title={t('dragHint')}>
+          <header className={css.head}>
+            <span className={css.title} {...dragHandlers} title={t('dragHint')}>
               <span className={css.titleMark} aria-hidden />{t('token')}
             </span>
             <div className={css.viewBar} role="group" aria-label={t('viewSwitch')}

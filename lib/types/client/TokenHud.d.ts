@@ -162,6 +162,10 @@ export interface TokenHudLocale {
     readonly dragHint: string;
     /** Long-press menu: back to the current default position. */
     readonly backToDefault: string;
+    /** Long-press menu: back to a custom-saved default. */
+    readonly backToCustom: string;
+    /** Toast after returning to the custom-saved default. */
+    readonly backToCustomDone: string;
     /** Long-press menu: back to the bottom-right corner (system default). */
     readonly backToCorner: string;
     /** Toast after resetting to the corner. */
