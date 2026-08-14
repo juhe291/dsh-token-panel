@@ -252,6 +252,13 @@
   letter-spacing: 0.02em;
 }
 
+.sparkCurrent {
+  fill: var(--dsw-alias-label-on-fill);
+  font-size: 8px;
+  font-weight: 700;
+  font-family: var(--token-panel-mono);
+}
+
 .sparkEmpty {
   display: flex;
   align-items: center;

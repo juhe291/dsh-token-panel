@@ -415,6 +415,28 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
       <circle cx={path.kind === 'line' ? path.last[0] : path.x} cy={path.kind === 'line' ? path.last[1] : path.y}
         r="3" fill="var(--dsw-alias-bg-module-platform)"
         stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1.6" />
+      {/* Current-value indicator: dashed leader from the latest point to the
+          Y axis plus a highlighted label that follows the value in real time. */}
+      {(path.kind === 'line' || path.kind === 'dot') && (() => {
+        const cx = path.kind === 'line' ? path.last[0] : path.x
+        const cy = path.kind === 'line' ? path.last[1] : path.y
+        const text = formatNumber(points[points.length - 1]?.total ?? 0)
+        const labelW = text.length * 5 + 8
+        return (
+          <>
+            <line x1={AXIS_W} y1={cy} x2={cx} y2={cy}
+              stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1"
+              vectorEffect="non-scaling-stroke" strokeDasharray="3 3" opacity="0.55" />
+            <rect x={AXIS_W - labelW - 4} y={cy - 8} width={labelW} height={13} rx={6.5}
+              fill="var(--dsw-alias-state-business-primary)" opacity="0.9" />
+            <text x={AXIS_W - labelW / 2 - 4} y={cy + 1.5}
+              textAnchor="middle"
+              className={css.sparkCurrent}>
+              {text}
+            </text>
+          </>
+        )
+      })()}
       {yLabels.map((label) => (
         <text key={label.y} x={AXIS_W - 5} y={label.y + 3}
           textAnchor="end"
