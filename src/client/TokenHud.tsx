@@ -268,7 +268,19 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
   readonly t: Translate
 }) {
   const path = useMemo(() => {
-    if (points.length < 2) return null
+    if (points.length === 0) return null
+    // Single point: render a centered dot with its tick (curve needs 2+).
+    if (points.length === 1) {
+      const only = points[0]
+      if (only === undefined) return null
+      return {
+        kind: 'dot' as const,
+        x: width / 2,
+        y: height / 2 - 6,
+        t: only.t,
+        ticks: [{ t: only.t, x: width / 2 }],
+      }
+    }
     const max = Math.max(...points.map((point) => point.total), 1)
     const min = Math.min(...points.map((point) => point.total), 0)
     const span = Math.max(max - min, 1)
@@ -287,7 +299,7 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
       const t = t0 + tSpan * fraction
       return { t, x: x(t) }
     })
-    return { line, area, last, ticks }
+    return { kind: 'line' as const, line, area, last, ticks }
   }, [points, width, height, now])
 
   if (path === null) {
@@ -303,15 +315,15 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
           <stop offset="100%" stopColor="var(--dsw-alias-state-business-primary)" stopOpacity="0.02" />
         </linearGradient>
       </defs>
-      <path d={path.area} fill="url(#tokenSparkFill)" />
-      <path d={path.line} fill="none" stroke="var(--dsw-alias-state-business-primary)"
-        strokeWidth="1.6" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={path.last[0]} cy={path.last[1]} r="2.6"
-        fill="var(--dsw-alias-bg-module-platform)"
-        stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1.4" />
+      {path.kind === 'line' && <path d={path.area} fill="url(#tokenSparkFill)" />}
+      {path.kind === 'line' && <path d={path.line} fill="none" stroke="var(--dsw-alias-state-business-primary)"
+        strokeWidth="1.6" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />}
+      <circle cx={path.kind === 'line' ? path.last[0] : path.x} cy={path.kind === 'line' ? path.last[1] : path.y}
+        r="3" fill="var(--dsw-alias-bg-module-platform)"
+        stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1.6" />
       {path.ticks.map((tick) => (
         <text key={tick.t} x={tick.x} y={height - 3}
-          textAnchor={tick.x < width * 0.15 ? 'start' : tick.x > width * 0.85 ? 'end' : 'middle'}
+          textAnchor="middle"
           className={css.sparkTick}>
           {tickFormat(tick.t)}
         </text>
@@ -471,7 +483,7 @@ function StatsView({ stats, t }: {
         stats.months.length > 0 ? (
           <section className={css.statsSection}>
             <header className={css.statsSectionHead}>{t('byMonth')} · {t('all')}</header>
-            {monthPoints.length >= 2 && (
+            {monthPoints.length >= 1 && (
               <div className={css.statsSparkWrap}>
                 <Sparkline points={monthPoints} now={Date.now()} height={64} tickFormat={formatDateTick} t={t} />
               </div>
@@ -489,7 +501,7 @@ function StatsView({ stats, t }: {
         stats.days.length > 0 ? (
           <section className={css.statsSection}>
             <header className={css.statsSectionHead}>{t('byDay')} · {t('all')}</header>
-            {dayPoints.length >= 2 && (
+            {dayPoints.length >= 1 && (
               <div className={css.statsSparkWrap}>
                 <Sparkline points={dayPoints} now={Date.now()} height={64} tickFormat={formatDateTick} t={t} />
               </div>
