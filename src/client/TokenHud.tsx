@@ -726,6 +726,8 @@ export function TokenHud({ t, sessionsList }: {
     }
   })
   const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean; last: { x: number; y: number } } | null>(null)
+  /** Set after a real drag ends, so the trailing click event is suppressed. */
+  const suppressClickRef = useRef(false)
 
   const onDragStart = (event: React.PointerEvent<HTMLElement>): void => {
     // Anchor on the element's current on-screen position, not (0,0) —
@@ -760,12 +762,16 @@ export function TokenHud({ t, sessionsList }: {
     const moved = drag.moved
     const final = drag.last
     dragState.current = null
-    if (!moved) return
-    try {
-      // Persist the ref-tracked final position (never a stale closure value).
-      window.localStorage.setItem('dsh-token-panel-pos', JSON.stringify(final))
-    } catch {
-      // Storage unavailable; position simply resets next load.
+    if (moved) {
+      // Suppress the click that fires after a genuine drag, so dragging the
+      // collapsed pill moves it without opening the panel.
+      suppressClickRef.current = true
+      try {
+        // Persist the ref-tracked final position (never a stale closure value).
+        window.localStorage.setItem('dsh-token-panel-pos', JSON.stringify(final))
+      } catch {
+        // Storage unavailable; position simply resets next load.
+      }
     }
   }
 
@@ -915,7 +921,15 @@ export function TokenHud({ t, sessionsList }: {
       {!open && (
         <div {...dragHandlers} style={{ cursor: 'grab' }}>
           <CollapsedChip total={totals.total} cumulative={totals.cumulative} tps={tps}
-            onClick={() => { if (dragState.current === null) setOpen(true) }} t={t} />
+            onClick={() => {
+              // A click right after a drag is the drag's own release, not a
+              // user intent to open — swallow it once.
+              if (suppressClickRef.current) {
+                suppressClickRef.current = false
+                return
+              }
+              setOpen(true)
+            }} t={t} />
         </div>
       )}
       {open && (
