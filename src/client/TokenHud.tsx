@@ -832,6 +832,9 @@ export function TokenHud({ t, sessionsList }: {
   const suppressClickUntilRef = useRef(0)
   /** Set when the long-press timer fired (reliable across render closures). */
   const longPressTriggeredRef = useRef(false)
+  /** Latest default position, mirrored from state for stale-closure-free reads. */
+  const defaultPosRef = useRef<DefaultPos | null>(null)
+  useEffect(() => { defaultPosRef.current = defaultPos }, [defaultPos])
   /** Long-press menu state (opened by holding the pill 600ms without moving). */
   const [pressMenu, setPressMenu] = useState(false)
   /** Position submenu expanded inside the long-press menu. */
@@ -998,16 +1001,29 @@ export function TokenHud({ t, sessionsList }: {
     }
   }
 
-  /** Back to the user-defined default position (preset or custom). */
+  /** Back to the user-defined default position (preset or custom).
+   *  When the panel is open, the target is clamped so it lands fully
+   *  visible — otherwise an off-screen target looks like "nothing moved". */
   const goToDefault = (): void => {
-    const def = defaultPos
+    const def = defaultPosRef.current
+    let target: { x: number; y: number } | null
     if (def === null || def.kind === 'corner') {
-      setPosition(null)
+      target = null
     } else if (def.kind === 'preset') {
-      setPosition(presetCornerPosition(def.preset))
+      target = presetCornerPosition(def.preset)
     } else {
-      setPosition({ x: def.x, y: def.y })
+      target = { x: def.x, y: def.y }
     }
+    if (target !== null && open && panelRef.current !== null) {
+      const rect = panelRef.current.getBoundingClientRect()
+      const maxX = Math.max(8, window.innerWidth - rect.width - 8)
+      const maxY = Math.max(8, window.innerHeight - rect.height - 8)
+      target = {
+        x: Math.min(Math.max(target.x, 8), maxX),
+        y: Math.min(Math.max(target.y, 8), maxY),
+      }
+    }
+    setPosition(target)
     setPressMenu(false)
     setSettingDefaultBoth(false)
     showToast(def === null || def.kind === 'corner'
@@ -1026,7 +1042,17 @@ export function TokenHud({ t, sessionsList }: {
   const applyPreset = (preset: 'tl' | 'tr' | 'bl' | 'br'): void => {
     const next: DefaultPos = { kind: 'preset', preset }
     setDefaultPos(next)
-    setPosition(presetCornerPosition(preset))
+    let target = presetCornerPosition(preset)
+    if (open && panelRef.current !== null) {
+      const rect = panelRef.current.getBoundingClientRect()
+      const maxX = Math.max(8, window.innerWidth - rect.width - 8)
+      const maxY = Math.max(8, window.innerHeight - rect.height - 8)
+      target = {
+        x: Math.min(Math.max(target.x, 8), maxX),
+        y: Math.min(Math.max(target.y, 8), maxY),
+      }
+    }
+    setPosition(target)
     setPressMenu(false)
     setSettingDefaultBoth(false)
     showToast(fill(t('defaultSetTo'), { pos: cornerLabel(preset, t) }))
