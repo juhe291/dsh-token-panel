@@ -14,7 +14,7 @@
 </div>
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="dsh-token-panel live view" width="520">
+  <img src="assets/screenshot.png" alt="dsh-token-panel live and stats views" width="100%">
 </p>
 
 ---
@@ -43,10 +43,6 @@ A compact pill in the bottom-right corner shows the total token pressure in real
 | Cumulative total | Total tokens consumed plus the ≈¥ estimated cost |
 | Budget & balance | Monthly budget bar when `budgetMonthly` is set (red over budget); auto-fetched DeepSeek account balance |
 | Durable | Usage is written to per-day JSONL logs on disk — **survives restarts** |
-
-<p align="center">
-  <img src="assets/screenshot-stats.png" alt="dsh-token-panel stats view" width="520">
-</p>
 
 > ⚠️ **Number scale note**: the stats view's "Daily / Monthly" figures are **cumulative historical consumption** (input + output + **cache reads** summed); cache reads usually dominate, so a single day can reach hundreds of millions of tokens (displayed with the M suffix). The live view, by contrast, shows **current context pressure** (tokens in context right now, typically tens of thousands — k suffix). **These are two different quantities**; seeing "live 400k / stats 100M" is expected, not a bug. The `≈` number on a session row is that session's cumulative consumption, and the `¥` figure is its estimated cost — both matching the stats-view scale.
 

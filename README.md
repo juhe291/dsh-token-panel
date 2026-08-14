@@ -14,7 +14,7 @@
 </div>
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="dsh-token-panel 实时视图" width="520">
+  <img src="assets/screenshot.png" alt="dsh-token-panel 实时与统计视图" width="100%">
 </p>
 
 ---
@@ -43,10 +43,6 @@
 | 累计消耗 | 顶部汇总：累计 token 总数 + 约 ¥ 估算成本 |
 | 预算与余额 | 配置 `budgetMonthly` 显示本月预算进度条（超支变红）；自动拉取 DeepSeek 账户余额 |
 | 持久化 | 数据按天写入磁盘（JSONL），**重启不丢**，越用越完整 |
-
-<p align="center">
-  <img src="assets/screenshot-stats.png" alt="dsh-token-panel 统计视图" width="520">
-</p>
 
 > ⚠️ **数字口径提示**：统计视图的「按日 / 按月」是**历史累计消耗**（输入 + 输出 + **缓存读**全部累加），缓存读通常是最大头，所以单日就可能上亿 token（显示 M 单位）；而实时视图的数字是**当前上下文压力**（此刻占用的 token，几十万级，显示 k 单位）。**两个数字不是同一个量**，看到「实时 400k / 统计 100M」的差异是正常的，不要担心。
 > 会话行上的 `≈` 小字就是该会话的累计消耗，`¥` 数字是该会话的估算花费，和统计视图口径一致。
