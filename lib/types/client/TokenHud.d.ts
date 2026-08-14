@@ -44,6 +44,8 @@ export interface SessionTokenRow {
 export interface HistoryPoint {
     readonly t: number;
     readonly total: number;
+    /** Cumulative output tokens at that sample. */
+    readonly output?: number;
 }
 /** Aggregate snapshot body. */
 export interface TokenSnapshot {

@@ -91,6 +91,8 @@ export interface HistoryPoint {
     readonly t: number;
     /** Total request-and-response pressure at that sample. */
     readonly total: number;
+    /** Cumulative output tokens at that sample (for the consumption curve). */
+    readonly output: number;
 }
 /** Aggregate snapshot for every live agent session. */
 export interface TokenPanelSnapshot {

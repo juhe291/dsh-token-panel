@@ -125,6 +125,8 @@ export interface HistoryPoint {
   readonly t: number
   /** Total request-and-response pressure at that sample. */
   readonly total: number
+  /** Cumulative output tokens at that sample (for the consumption curve). */
+  readonly output: number
 }
 
 /** Aggregate snapshot for every live agent session. */
@@ -349,7 +351,7 @@ export class TokenPanelService extends Service {
     }
   }
 
-  private sample(id: string, totalTokens: number, now: number): readonly HistoryPoint[] {
+  private sample(id: string, totalTokens: number, outputTokens: number, now: number): readonly HistoryPoint[] {
     let series = this.history.get(id)
     if (series === undefined) {
       series = []
@@ -357,7 +359,7 @@ export class TokenPanelService extends Service {
     }
     // Only one sample per tick even when multiple tabs poll.
     if (now - this.lastSampleAt >= 500) {
-      series.push({ t: now, total: totalTokens })
+      series.push({ t: now, total: totalTokens, output: outputTokens })
       if (series.length > HISTORY_CAP) series.shift()
     }
     return series
@@ -492,7 +494,7 @@ export class TokenPanelService extends Service {
         systemTokens,
         toolsTokens,
         messageTokens,
-        history: [...this.sample(id, totalTokens, now)],
+        history: [...this.sample(id, totalTokens, usage?.outputTokens ?? 0, now)],
       })
       // Remember every live session so restarts keep the row (historic
       // sessions have no live agent after a restart; the registry is the

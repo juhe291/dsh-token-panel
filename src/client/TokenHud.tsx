@@ -67,6 +67,8 @@ export interface SessionTokenRow {
 export interface HistoryPoint {
   readonly t: number
   readonly total: number
+  /** Cumulative output tokens at that sample. */
+  readonly output?: number
 }
 
 /** Aggregate snapshot body. */
@@ -284,6 +286,18 @@ function formatMonthTick(t: number, translate: Translate): string {
   return fill(translate('monthFmt'), { y: date.getFullYear(), m: date.getMonth() + 1 })
 }
 
+/** Convert cumulative output samples into per-tick consumption deltas
+ *  (idle ticks become 0, so the curve drops to zero when not in use). */
+function toConsumption(points: readonly HistoryPoint[]): readonly HistoryPoint[] {
+  let previous = points[0]?.output ?? 0
+  return points.map((point, index) => {
+    const output = point.output ?? 0
+    const delta = index === 0 ? 0 : Math.max(0, output - previous)
+    previous = output
+    return { t: point.t, total: delta }
+  })
+}
+
 /**
  * Sparkline: renders the timestamped history as an SVG area chart with
  * ticks on the bottom axis. Pass `tickFormat` for non-time scales (e.g.
@@ -317,12 +331,13 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
     const t0 = points[0]?.t ?? now
     const t1 = points[points.length - 1]?.t ?? now
     const tSpan = Math.max(t1 - t0, 1)
-    const y = (value: number): number => height - 16 - ((value - min) / span) * (height - 24)
+    // Reserve a 14px bottom band for tick labels so they never clip.
+    const y = (value: number): number => height - 18 - ((value - min) / span) * (height - 28)
     const x = (t: number): number => ((t - t0) / tSpan) * width
     const coords = points.map((point) => [x(point.t), y(point.total)] as const)
     const line = coords.map(([xValue, yValue], index) =>
       `${index === 0 ? 'M' : 'L'}${xValue.toFixed(1)},${yValue.toFixed(1)}`).join(' ')
-    const area = `${line} L${width},${height - 12} L0,${height - 12} Z`
+    const area = `${line} L${width},${height - 14} L0,${height - 14} Z`
     const last = coords[coords.length - 1]
     if (last === undefined) return null
     const ticks = [0, 0.5, 1].map((fraction) => {
@@ -352,7 +367,7 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
         r="3" fill="var(--dsw-alias-bg-module-platform)"
         stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1.6" />
       {path.ticks.map((tick) => (
-        <text key={tick.t} x={tick.x} y={height - 3}
+        <text key={tick.t} x={tick.x} y={height - 5}
           textAnchor="middle"
           className={css.sparkTick}>
           {tickFormat(tick.t)}
@@ -398,7 +413,8 @@ function SessionRow({ row, prices, rangeMs, now, t }: {
   const cost = estimateRowCost(row, prices)
   const used = occupancy(row)
   const label = row.label !== '' ? row.label : row.sessionId.slice(-8)
-  const history = filterRange(row.history ?? [], now, rangeMs)
+  // Per-tick consumption deltas: idle ticks drop to zero.
+  const history = toConsumption(filterRange(row.history ?? [], now, rangeMs))
   // Cumulative consumption across all buckets (the "usage total").
   const cumulative = usage === undefined
     ? undefined
@@ -770,7 +786,8 @@ export function TokenHud({ t, sessionsList }: {
       ? snapshot.sessions.find((row) => row.sessionId === currentSessionId)
       : undefined
     const source = current ?? snapshot.sessions[0]
-    return filterRange(source?.history ?? [], now, rangeMs)
+    // Per-tick consumption deltas: idle ticks drop to zero.
+    return toConsumption(filterRange(source?.history ?? [], now, rangeMs))
   }, [snapshot, now, rangeMs, currentSessionId])
 
   const dragHandlers = {
