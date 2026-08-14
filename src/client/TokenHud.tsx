@@ -247,6 +247,7 @@ export interface TokenHudLocale {
   readonly pollStats: string
   readonly pricePeak: string
   readonly priceOffpeak: string
+  readonly priceFlat: string
   readonly balanceTitle: string
   readonly balanceLabel: string
   readonly budgetLabel: string
@@ -918,7 +919,7 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
   return (
     <div className={css.statsBody}>
       <section className={css.section}>
-        <div className={css.sectionLabel}><span>{t('summaryTitle')}</span></div>
+        {/* Cumulative total doubles as the section opener — no extra heading. */}
         <div className={css.statsTotal}>
           <div className={css.statsTotalRow}>
             <span className={css.statsTotalLabel}>{t('totalLabel')}</span>
@@ -961,11 +962,11 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
           <div className={css.statsSparkWrap}>
             {subView === 'months'
               ? (monthPoints.length >= 1 && (
-                <Sparkline points={monthPoints} now={Date.now()} height={84}
+                <Sparkline points={monthPoints} now={Date.now()} height={78}
                   tickFormat={(value) => formatMonthTick(value, t)} t={t} />
               ))
               : (dayPoints.length >= 1 && (
-                <Sparkline points={dayPoints} now={Date.now()} height={84} tickFormat={formatDateTick} t={t} />
+                <Sparkline points={dayPoints} now={Date.now()} height={78} tickFormat={formatDateTick} t={t} />
               ))}
           </div>
           {listCount > 0 && (
@@ -1768,9 +1769,9 @@ export function TokenHud({ t, sessionsList }: {
               {tps > 0 && (
                 <span className={css.footTps}> · {tps >= 10 ? Math.round(tps) : tps.toFixed(1)} t/s</span>
               )}
-              {prices.mode !== undefined && prices.mode !== 'flat' && (
+              {prices.mode !== undefined && (
                 <span className={css.footPrice} data-mode={prices.mode}>
-                  {prices.mode === 'peak' ? t('pricePeak') : t('priceOffpeak')}
+                  {prices.mode === 'peak' ? t('pricePeak') : prices.mode === 'offpeak' ? t('priceOffpeak') : t('priceFlat')}
                 </span>
               )}
             </span>

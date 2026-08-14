@@ -173,6 +173,7 @@ export interface TokenHudLocale {
     readonly pollStats: string;
     readonly pricePeak: string;
     readonly priceOffpeak: string;
+    readonly priceFlat: string;
     readonly balanceTitle: string;
     readonly balanceLabel: string;
     readonly budgetLabel: string;
