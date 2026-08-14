@@ -246,7 +246,7 @@ A: The panel follows your current conversation and hides empty (0-token) session
 
 ## License
 
-[MIT](LICENSE) · Changelog: [CHANGELOG.md](CHANGELOG.md)
+[MIT](LICENSE) · Changelog: [CHANGELOG.en.md](CHANGELOG.en.md)
 
 ---
 
