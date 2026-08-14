@@ -1794,11 +1794,11 @@ export function TokenHud({ t, sessionsList }: {
                   <span className={css.footTps}>{tps >= 10 ? Math.round(tps) : tps.toFixed(1)} t/s</span>
                 )}
               </span>
+              <span className={css.footDate}>{formatDateShort(snapshot.generatedAt)}</span>
             </div>
             <div className={`${css.footCol} ${css.footRightCol}`}>
               <span className={css.footCost}>{t('costNow')}</span>
               <span className={css.footCost}><b>{formatCost(totalCostNow)}</b></span>
-              <span className={css.footDate}>{formatDateShort(snapshot.generatedAt)}</span>
               <span className={css.mono}>{new Date(snapshot.generatedAt).toLocaleTimeString()}</span>
             </div>
           </footer>
