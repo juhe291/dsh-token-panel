@@ -162,6 +162,8 @@ export interface TokenHudLocale {
     readonly openPanel: string;
     /** Tooltip hint for the draggable title bar. */
     readonly dragHint: string;
+    /** Hover tooltip summarizing the three gestures. */
+    readonly hoverHint: string;
     /** Long-press menu: back to the current default position. */
     readonly backToDefault: string;
     /** Long-press menu: back to a custom-saved default. */

@@ -15,6 +15,50 @@
   font-family: var(--token-panel-mono);
 }
 
+/* Hover hint bubble on the pill (above) and the panel header (below). */
+[data-hud-handle] {
+  position: relative;
+}
+
+[data-hud-handle]::after {
+  content: attr(data-hud-hint);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%) translateY(2px);
+  white-space: nowrap;
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-line-strong) 58%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 95%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent);
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--token-panel-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+  z-index: 40;
+}
+
+[data-hud-handle]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Pill variant: bubble floats above the pill. */
+.host > [data-hud-handle]:not(.head)::after {
+  bottom: calc(100% + 8px);
+  top: auto;
+}
+
+/* Panel header variant: bubble drops below the header. */
+.head[data-hud-handle]::after {
+  top: calc(100% - 2px);
+  bottom: auto;
+}
+
 .pressMenu {
   position: absolute;
   bottom: 46px;

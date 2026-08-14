@@ -234,6 +234,8 @@ export interface TokenHudLocale {
   readonly openPanel: string
   /** Tooltip hint for the draggable title bar. */
   readonly dragHint: string
+  /** Hover tooltip summarizing the three gestures. */
+  readonly hoverHint: string
   /** Long-press menu: back to the current default position. */
   readonly backToDefault: string
   /** Long-press menu: back to a custom-saved default. */
@@ -1309,13 +1311,15 @@ export function TokenHud({ t, sessionsList }: {
           {...dragHandlers}
           style={{ cursor: 'grab' }}
           onPointerUp={onPillPointerUp}
+          data-hud-handle
+          data-hud-hint={t('hoverHint')}
         >
           <CollapsedChip total={totals.total} cumulative={totals.cumulative} tps={tps} t={t} />
         </div>
       )}
       {open && (
         <aside className={css.panel} data-token-panel ref={panelRef}>
-          <header className={css.head} {...dragHandlers}>
+          <header className={css.head} {...dragHandlers} data-hud-handle data-hud-hint={t('hoverHint')}>
             <span className={css.title} title={t('dragHint')}>
               <span className={css.titleMark} aria-hidden />{t('token')}
             </span>
