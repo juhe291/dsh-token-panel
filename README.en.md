@@ -32,6 +32,12 @@
 
 ## Installation
 
+### From npm
+
+```sh
+dsh plugin --profile web add dsh-token-panel
+```
+
 ### From GitHub
 
 ```sh

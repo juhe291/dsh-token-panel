@@ -32,7 +32,13 @@
 
 ## 安装
 
-### 从 GitHub 安装（推荐）
+### 从 npm 安装（推荐）
+
+```sh
+dsh plugin --profile web add dsh-token-panel
+```
+
+### 从 GitHub 安装
 
 ```sh
 dsh plugin --profile web add github:juhe291/dsh-token-panel
