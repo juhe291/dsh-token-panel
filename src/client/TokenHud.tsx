@@ -303,6 +303,20 @@ function toConsumption(points: readonly HistoryPoint[]): readonly HistoryPoint[]
  * ticks on the bottom axis. Pass `tickFormat` for non-time scales (e.g.
  * daily/monthly stats).
  */
+/** Round a value up to a "nice" axis number (1/2/2.5/5 × 10^n). */
+function niceCeil(value: number): number {
+  if (value <= 0) return 1
+  const exponent = Math.floor(Math.log10(value))
+  const magnitude = Math.pow(10, exponent)
+  const normalized = value / magnitude
+  const nice = normalized <= 1 ? 1
+    : normalized <= 2 ? 2
+      : normalized <= 2.5 ? 2.5
+        : normalized <= 5 ? 5
+          : 10
+  return nice * magnitude
+}
+
 function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatTime, t }: {
   readonly points: readonly HistoryPoint[]
   readonly now: number
@@ -314,6 +328,9 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
   /** Left gutter reserved for the Y-axis value labels. */
   const AXIS_W = 38
   const plotW = width - AXIS_W
+  // Hysteresis state: the axis rises immediately but only steps down when
+  // the data drops below half the current scale (Steam-like stability).
+  const yMaxRef = useRef<number>(1)
 
   const path = useMemo(() => {
     if (points.length === 0) return null
@@ -323,19 +340,26 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
       if (only === undefined) return null
       const yTop = 6
       const yBot = height - 14
+      const axisMax = niceCeil(only.total)
       return {
         kind: 'dot' as const,
         x: AXIS_W + plotW / 2,
         y: yTop + (yBot - yTop) / 2,
         t: only.t,
         ticks: [{ t: only.t, x: AXIS_W + plotW / 2 }],
-        yMax: only.total > 0 ? only.total : 1,
-        yMid: only.total / 2,
+        yMax: axisMax,
+        yMid: axisMax / 2,
         yMin: 0,
       }
     }
-    const max = Math.max(...points.map((point) => point.total), 1)
-    const min = Math.min(...points.map((point) => point.total), 0)
+    const rawMax = Math.max(...points.map((point) => point.total), 0)
+    // Rise immediately; only descend below half the current scale.
+    const current = yMaxRef.current
+    if (rawMax > current || rawMax < current * 0.5) {
+      yMaxRef.current = niceCeil(rawMax)
+    }
+    const max = yMaxRef.current
+    const min = 0
     const span = Math.max(max - min, 1)
     const t0 = points[0]?.t ?? now
     const t1 = points[points.length - 1]?.t ?? now
@@ -356,7 +380,7 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
     return {
       kind: 'line' as const, line, area, last, ticks,
       yMax: max,
-      yMid: (max + min) / 2,
+      yMid: max / 2,
       yMin: min,
     }
   }, [points, width, height, now, plotW])
