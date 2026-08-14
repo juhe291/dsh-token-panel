@@ -860,8 +860,17 @@
   letter-spacing: 0.06em;
 }
 
+.budgetWrap {
+  margin-bottom: 4px;
+}
+
+.budgetWrap .editRow .editValue {
+  margin-left: auto;
+}
+
 .budgetTrack {
-  flex: 1;
+  display: block;
+  width: 100%;
   height: 8px;
   border-radius: 4px;
   background: var(--dsw-alias-bg-fill-neutral);

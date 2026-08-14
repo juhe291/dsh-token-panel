@@ -322,6 +322,23 @@ function formatAxisNumber(value: number): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
 }
 
+/** Compact axis tick: 1.00B → 1B, 500.00M → 500M, 12.3k → 12k. */
+function formatAxisTick(value: number): string {
+  if (value >= 1_000_000_000) {
+    const b = value / 1_000_000_000
+    return `${b >= 100 ? Math.round(b) : b >= 10 ? b.toFixed(0) : b.toFixed(1)}B`
+  }
+  if (value >= 1_000_000) {
+    const m = value / 1_000_000
+    return `${m >= 100 ? Math.round(m) : m >= 10 ? m.toFixed(0) : m.toFixed(1)}M`
+  }
+  if (value >= 1_000) {
+    const k = value / 1_000
+    return `${k >= 100 ? Math.round(k) : k >= 10 ? k.toFixed(0) : k.toFixed(1)}k`
+  }
+  return formatAxisNumber(value)
+}
+
 /** Format a timestamp as HH:MM:SS. */
 function formatTime(t: number): string {
   const date = new Date(t)
@@ -452,7 +469,7 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
   readonly t: Translate
 }) {
   /** Left gutter reserved for the Y-axis value labels. */
-  const AXIS_W = 38
+  const AXIS_W = 46
   const plotW = width - AXIS_W
   // Hysteresis state: the axis rises immediately but only steps down when
   // the data drops below half the current scale (Steam-like stability).
@@ -517,10 +534,12 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
   }
 
   // Y-axis value labels (top/middle/bottom) + faint gridlines.
+  // Layout: unit label at the very top (y=2), ticks below it (y=10 / mid /
+  // bottom y=height-20) so nothing collides with the time ticks at the base.
   const yLabels = [
-    { value: path.yMax, y: 8 },
-    { value: path.yMid, y: (height - 14 + 8) / 2 },
-    { value: path.yMin, y: height - 16 },
+    { value: path.yMax, y: 10 },
+    { value: path.yMid, y: (height - 20 + 10) / 2 },
+    { value: path.yMin, y: height - 20 },
   ]
 
   return (
@@ -547,7 +566,7 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
       {(path.kind === 'line' || path.kind === 'dot') && (() => {
         const cx = path.kind === 'line' ? path.last[0] : path.x
         const cy = path.kind === 'line' ? path.last[1] : path.y
-        const text = formatAxisNumber(points[points.length - 1]?.total ?? 0)
+        const text = formatAxisTick(points[points.length - 1]?.total ?? 0)
         const labelW = text.length * 5 + 8
         return (
           <>
@@ -568,11 +587,11 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
         <text key={label.y} x={AXIS_W - 5} y={label.y + 3}
           textAnchor="end"
           className={css.sparkYTick}>
-          {formatAxisNumber(label.value)}
+          {formatAxisTick(label.value)}
         </text>
       ))}
       {/* Y-axis unit label: always present, even when the series is idle. */}
-      <text x={AXIS_W - 5} y={4}
+      <text x={AXIS_W - 5} y={2}
         textAnchor="end"
         className={css.sparkUnit}>
         tok
@@ -827,8 +846,13 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
             <span className={css.statsTotalSub}>{t('totalSub')} · {t('approx')}{formatCost(totalCost)}</span>
           </div>
         </div>
-        <div className={css.editRow}>
-          <span className={css.editLabel}>{t('budgetLabel')}</span>
+        <div className={css.budgetWrap}>
+          <div className={css.editRow}>
+            <span className={css.editLabel}>{t('budgetLabel')}</span>
+            {/* "used this month / budget" — the used amount resets each month. */}
+            {renderEditor('budget', budgetMonthly > 0 ? budgetMonthly : null,
+              budgetMonthly > 0 ? `${formatCost(monthCost)} / ${formatCost(budgetMonthly)}` : t('notSet'))}
+          </div>
           {budgetMonthly > 0 && (
             <span className={css.budgetTrack}>
               <span
@@ -838,14 +862,9 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
               />
             </span>
           )}
-          {/* "used this month / budget" — the used amount resets each month. */}
-          {renderEditor('budget', budgetMonthly > 0 ? budgetMonthly : null,
-            budgetMonthly > 0 ? `${formatCost(monthCost)} / ${formatCost(budgetMonthly)}` : t('notSet'))}
         </div>
         <div className={`${css.editRow} ${css.balanceEditRow}`}>
           <span className={css.editLabel}>{t('balanceLabel')}</span>
-          {/* Empty track keeps the balance row aligned with the budget row. */}
-          <span className={css.budgetTrack} aria-hidden />
           {renderEditor('balance', effectiveBalance, effectiveBalance !== null ? `¥${effectiveBalance.toFixed(2)}` : t('notSet'))}
         </div>
         <div className={css.editNote}>{t('balanceLocalNote')}</div>
