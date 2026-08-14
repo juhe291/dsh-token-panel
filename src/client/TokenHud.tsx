@@ -15,7 +15,8 @@
  * @module dsh-token-panel/client/hud
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import type { ObservableSnapshot, SessionListState } from '@deepseek-ai/dsh-client-runtime/client'
 import css from './TokenHud.module.css'
 
 /** Host routes. */
@@ -511,8 +512,9 @@ function StatsView({ stats, t }: {
 }
 
 /** The top-level HUD: polling, view switching and layout. */
-export function TokenHud({ t }: {
+export function TokenHud({ t, sessionsList }: {
   readonly t: Translate
+  readonly sessionsList: ObservableSnapshot<SessionListState>
 }): JSX.Element {
   const [snapshot, setSnapshot] = useState<TokenSnapshot | null>(null)
   const [stats, setStats] = useState<TokenStats | null>(null)
@@ -523,6 +525,12 @@ export function TokenHud({ t }: {
   const [now, setNow] = useState<number>(Date.now())
   const [showAll, setShowAll] = useState(false)
   const inFlight = useRef(false)
+
+  // Current session id from the session list (follows the open conversation).
+  const currentSessionId = useSyncExternalStore(
+    sessionsList.subscribe,
+    sessionsList.getSnapshot,
+  ).current
 
   useEffect(() => {
     let cancelled = false
@@ -588,8 +596,13 @@ export function TokenHud({ t }: {
 
   const topHistory = useMemo(() => {
     if (snapshot === null || snapshot.sessions.length === 0) return []
-    return filterRange(snapshot.sessions[0]?.history ?? [], now, rangeMs)
-  }, [snapshot, now, rangeMs])
+    // Prefer the current (open) session's curve; fall back to the largest.
+    const current = currentSessionId !== undefined
+      ? snapshot.sessions.find((row) => row.sessionId === currentSessionId)
+      : undefined
+    const source = current ?? snapshot.sessions[0]
+    return filterRange(source?.history ?? [], now, rangeMs)
+  }, [snapshot, now, rangeMs, currentSessionId])
 
   if (snapshot === null) {
     return (
@@ -642,22 +655,37 @@ export function TokenHud({ t }: {
                 </div>
               )}
               <div className={css.body}>
-                {snapshot.sessions.length === 0 && (
-                  <span className={css.empty}>{t('noSessions')}</span>
-                )}
-                {snapshot.sessions.slice(0, showAll ? undefined : 3).map((row) => (
-                  <SessionRow key={row.sessionId} row={row} prices={prices} rangeMs={rangeMs} now={now} t={t} />
-                ))}
-                {!showAll && snapshot.sessions.length > 3 && (
-                  <button type="button" className={css.moreButton} onClick={() => { setShowAll(true) }}>
-                    {fill(t('expandAll'), { count: snapshot.sessions.length })}
-                  </button>
-                )}
-                {showAll && snapshot.sessions.length > 3 && (
-                  <button type="button" className={css.moreButton} onClick={() => { setShowAll(false) }}>
-                    {t('collapseAll')}
-                  </button>
-                )}
+                {(() => {
+                  // The current (open) conversation is always shown first;
+                  // other sessions are hidden unless "show all" is toggled.
+                  const current = currentSessionId !== undefined
+                    ? snapshot.sessions.find((row) => row.sessionId === currentSessionId)
+                    : undefined
+                  const others = snapshot.sessions.filter((row) => row.sessionId !== current?.sessionId)
+                  const rows = current !== undefined
+                    ? [current, ...(showAll ? others : [])]
+                    : (showAll ? snapshot.sessions : snapshot.sessions.slice(0, 3))
+                  if (rows.length === 0 && others.length === 0) {
+                    return <span className={css.empty}>{t('noSessions')}</span>
+                  }
+                  return (
+                    <>
+                      {rows.map((row) => (
+                        <SessionRow key={row.sessionId} row={row} prices={prices} rangeMs={rangeMs} now={now} t={t} />
+                      ))}
+                      {!showAll && others.length > 0 && (
+                        <button type="button" className={css.moreButton} onClick={() => { setShowAll(true) }}>
+                          {fill(t('expandAll'), { count: others.length })}
+                        </button>
+                      )}
+                      {showAll && others.length > 0 && (
+                        <button type="button" className={css.moreButton} onClick={() => { setShowAll(false) }}>
+                          {t('collapseAll')}
+                        </button>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
             </>
           ) : (

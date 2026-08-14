@@ -1,6 +1,6 @@
 /** Browser plugin for the dsh-token-panel HUD. */
 
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ClientContext, SessionListState, ObservableSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { LocaleNamespaceMap } from '@deepseek-ai/dsh-client-ui-slots'
 import { createRoot } from 'react-dom/client'
@@ -17,7 +17,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Required client services. */
-export const inject = ['slots', 'locale']
+export const inject = ['slots', 'locale', 'sessions']
 
 /**
  * Mount the token HUD through a body portal: a fixed glass panel showing
@@ -115,7 +115,7 @@ export function apply(ctx: ClientContext): void {
   host.dataset.tokenPanelHost = ''
   document.body.appendChild(host)
   const root = createRoot(host)
-  root.render(<TokenHud t={t} />)
+  root.render(<TokenHud t={t} sessionsList={ctx.sessions.list} />)
   ctx.effect(() => () => {
     root.unmount()
     host.remove()

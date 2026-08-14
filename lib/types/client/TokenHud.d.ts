@@ -14,6 +14,7 @@
  *
  * @module dsh-token-panel/client/hud
  */
+import type { ObservableSnapshot, SessionListState } from '@deepseek-ai/dsh-client-runtime/client';
 /** One session's token row as served by the host. */
 export interface SessionTokenRow {
     readonly sessionId: string;
@@ -129,7 +130,8 @@ export interface TokenHudLocale {
 }
 type Translate = (key: keyof TokenHudLocale) => string;
 /** The top-level HUD: polling, view switching and layout. */
-export declare function TokenHud({ t }: {
+export declare function TokenHud({ t, sessionsList }: {
     readonly t: Translate;
+    readonly sessionsList: ObservableSnapshot<SessionListState>;
 }): JSX.Element;
 export {};
