@@ -571,6 +571,12 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
           {formatAxisNumber(label.value)}
         </text>
       ))}
+      {/* Y-axis unit label: always present, even when the series is idle. */}
+      <text x={AXIS_W - 5} y={4}
+        textAnchor="end"
+        className={css.sparkUnit}>
+        tok
+      </text>
       {path.ticks.map((tick) => (
         <text key={tick.t} x={tick.x} y={height - 5}
           textAnchor={tick.x < 60 ? 'start' : tick.x > width - 60 ? 'end' : 'middle'}
@@ -838,6 +844,8 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
         </div>
         <div className={`${css.editRow} ${css.balanceEditRow}`}>
           <span className={css.editLabel}>{t('balanceLabel')}</span>
+          {/* Empty track keeps the balance row aligned with the budget row. */}
+          <span className={css.budgetTrack} aria-hidden />
           {renderEditor('balance', effectiveBalance, effectiveBalance !== null ? `¥${effectiveBalance.toFixed(2)}` : t('notSet'))}
         </div>
         <div className={css.editNote}>{t('balanceLocalNote')}</div>
@@ -1670,7 +1678,7 @@ export function TokenHud({ t, sessionsList }: {
             </span>
             <span className={css.footRight}>
               <span className={css.footCost}>
-                {t('costNow')} <b>¥{totalCostNow.toFixed(2)}</b>
+                {t('costNow')} <b>{formatCost(totalCostNow)}</b>
               </span>
               <span className={css.mono}>{new Date(snapshot.generatedAt).toLocaleTimeString()}</span>
             </span>

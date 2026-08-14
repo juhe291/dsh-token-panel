@@ -511,6 +511,13 @@
   letter-spacing: 0.02em;
 }
 
+.sparkUnit {
+  fill: var(--dsw-alias-label-tertiary);
+  font-size: 8px;
+  font-family: var(--token-panel-mono);
+  letter-spacing: 0.06em;
+}
+
 .sparkCurrent {
   fill: var(--dsw-alias-label-on-fill);
   font-size: 8px;
@@ -842,7 +849,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 2px 4px;
+  padding: 7px 2px 3px;
 }
 
 .editLabel {
@@ -855,9 +862,10 @@
 
 .budgetTrack {
   flex: 1;
-  height: 5px;
-  border-radius: 3px;
+  height: 8px;
+  border-radius: 4px;
   background: var(--dsw-alias-bg-fill-neutral);
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-line-normal) 60%, transparent);
   overflow: hidden;
 }
 
