@@ -729,7 +729,7 @@ export function TokenHud({ t, sessionsList }: {
       return null
     }
   })
-  const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean; last: { x: number; y: number } } | null>(null)
+  const dragState = useRef<{ startX: number; startY: number; pointerId: number; baseX: number; baseY: number; moved: boolean; last: { x: number; y: number } } | null>(null)
   /** Timestamp until which pill clicks are swallowed (drag/hold releases).
    *  Timestamp-based so a missed click can never wedge it permanently. */
   const suppressClickUntilRef = useRef(0)
@@ -763,9 +763,6 @@ export function TokenHud({ t, sessionsList }: {
   }, [pressMenu])
 
   const onDragStart = (event: React.PointerEvent<HTMLElement>): void => {
-    // Capture the pointer so fast drags keep firing pointermove even when
-    // the cursor leaves the element (without this the drag dies mid-way).
-    event.currentTarget.setPointerCapture(event.pointerId)
     // Anchor on the element's current on-screen position, not (0,0) —
     // the default state is CSS right/bottom (bottom-right corner).
     const rect = event.currentTarget.getBoundingClientRect()
@@ -774,6 +771,7 @@ export function TokenHud({ t, sessionsList }: {
     dragState.current = {
       startX: event.clientX,
       startY: event.clientY,
+      pointerId: event.pointerId,
       baseX,
       baseY,
       moved: false,
@@ -797,7 +795,17 @@ export function TokenHud({ t, sessionsList }: {
     // Ignore jitter: only move after a 4px threshold, so plain clicks on
     // the title never nudge the panel.
     if (!drag.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
-    drag.moved = true
+    if (!drag.moved) {
+      // Only capture the pointer once a genuine drag starts. Capturing on
+      // pointerdown would retarget the release click away from inner
+      // buttons (making the pill impossible to open with a single click).
+      drag.moved = true
+      try {
+        event.currentTarget.setPointerCapture(drag.pointerId)
+      } catch {
+        // Capture unavailable; the drag still works while over the element.
+      }
+    }
     // Movement cancels the long-press timer (this is a drag, not a hold).
     if (pressTimerRef.current !== null) {
       clearTimeout(pressTimerRef.current)
