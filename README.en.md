@@ -20,10 +20,11 @@
 > ℹ️ **Cover note**: the banner above is a rendered **illustration** (not an actual screenshot), for promotional display only. Real UI: see the screenshot below.
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="dsh-token-panel live view" width="100%">
+  <img src="assets/screenshot.png" alt="dsh-token-panel live view" width="49%">
+  <img src="assets/screenshot-stats.png" alt="dsh-token-panel stats view" width="49%">
 </p>
 
-> 📷 Above: the live view (peak rate + session cost + current cost footer). The stats view is described below.
+> 📷 Left: live view (peak rate + session cost). Right: stats view (cumulative + editable budget/balance + daily/monthly breakdown).
 
 ---
 

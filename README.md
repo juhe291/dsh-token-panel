@@ -20,10 +20,11 @@
 > ℹ️ **封面声明**：上图是合成渲染的**示意图**（非真实截图），仅作宣传展示。真实界面请见下方截图。
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="dsh-token-panel 实时视图" width="100%">
+  <img src="assets/screenshot.png" alt="dsh-token-panel 实时视图" width="49%">
+  <img src="assets/screenshot-stats.png" alt="dsh-token-panel 统计视图" width="49%">
 </p>
 
-> 📷 上图：实时视图（峰值速率 + 会话花费 + 底部当前花费）。统计视图请见下方功能说明。
+> 📷 左：实时视图（峰值速率 + 会话花费）；右：统计视图（累计消耗 + 可编辑预算/余额 + 按日/按月明细）。
 
 ---
 
