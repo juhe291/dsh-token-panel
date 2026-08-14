@@ -32,17 +32,35 @@ import type { SessionTitleService } from '@deepseek-ai/dsh-session-title'
 import type { TokenMeter, TokenUsageProjection } from '@deepseek-ai/dsh-token-meter'
 
 export const name = 'dsh-token-panel'
-export const inject = ['tokenMeter', 'sessionProjections', 'sessionTitle', 'agents']
+export const inject = ['tokenMeter', 'sessionProjections', 'sessionTitle', 'agents', 'credentials']
 
 export interface Config {
   /** Browser panel poll cadence in milliseconds. */
   pollInterval: number
-  /** Display-only CNY price per 1M uncached input tokens. */
+  /** Display-only CNY price per 1M uncached input tokens (flat mode). */
   pricePerMInput: number
-  /** Display-only CNY price per 1M cache-hit (read) tokens. */
+  /** Display-only CNY price per 1M cache-hit (read) tokens (flat mode). */
   pricePerMCacheRead: number
-  /** Display-only CNY price per 1M output tokens. */
+  /** Display-only CNY price per 1M output tokens (flat mode). */
   pricePerMOutput: number
+  /** Pricing mode: 'flat' uses the fixed prices above; 'peak-offpeak' switches
+   *  by Beijing time (peak 9-12 & 14-18, off-peak otherwise) using the
+   *  peak/off-peak price keys below. */
+  priceMode: 'flat' | 'peak-offpeak'
+  /** Peak-period uncached input price (CNY / 1M tokens). */
+  pricePeakInput: number
+  /** Peak-period cache-hit price (CNY / 1M tokens). */
+  pricePeakCacheRead: number
+  /** Peak-period output price (CNY / 1M tokens). */
+  pricePeakOutput: number
+  /** Off-peak uncached input price (CNY / 1M tokens). */
+  priceOffpeakInput: number
+  /** Off-peak cache-hit price (CNY / 1M tokens). */
+  priceOffpeakCacheRead: number
+  /** Off-peak output price (CNY / 1M tokens). */
+  priceOffpeakOutput: number
+  /** Monthly budget in CNY for the budget meter; 0 disables the meter. */
+  budgetMonthly: number
   /** Directory for durable per-day usage logs (default ~/.dsh/cache/dsh-token-panel). */
   dataDir?: string
 }
@@ -56,6 +74,15 @@ export const Config: z<Config> = z.object({
   pricePerMInput: z.number().default(1),
   pricePerMCacheRead: z.number().default(0.02),
   pricePerMOutput: z.number().default(2),
+  priceMode: z.union([z.const('flat'), z.const('peak-offpeak')]).default('flat'),
+  // 2026-08-17 peak/off-peak schedule (Beijing time): peak 9-12 & 14-18.
+  pricePeakInput: z.number().default(3),
+  pricePeakCacheRead: z.number().default(0.1),
+  pricePeakOutput: z.number().default(9),
+  priceOffpeakInput: z.number().default(1.5),
+  priceOffpeakCacheRead: z.number().default(0.05),
+  priceOffpeakOutput: z.number().default(4.5),
+  budgetMonthly: z.number().default(0),
   dataDir: z.string(),
 })
 
@@ -106,6 +133,10 @@ export interface TokenPanelSnapshot {
   readonly sessions: readonly SessionTokenSnapshot[]
   /** Display-only price estimates (CNY per 1M tokens). */
   readonly prices: PriceEstimate
+  /** Aggregate generation speed (output tokens / second across sessions). */
+  readonly tps: number
+  /** Monthly budget in CNY (0 = meter disabled). */
+  readonly budgetMonthly: number
 }
 
 /** Display-only price estimate (CNY per 1M tokens). */
@@ -113,6 +144,8 @@ export interface PriceEstimate {
   readonly input: number
   readonly cacheRead: number
   readonly output: number
+  /** Pricing mode in effect: flat, peak or off-peak. */
+  readonly mode: 'flat' | 'peak' | 'offpeak'
 }
 
 /** One day's usage aggregate. */
@@ -199,6 +232,10 @@ export class TokenPanelService extends Service {
   private readonly lastUsage = new Map<string, LastUsage>()
   private lastSampleAt = 0
   private readonly dataDir: string
+  private lastTpsOutput = 0
+  private lastTpsAt = 0
+  private cachedBalance: { value: number; currency: string; at: number } | null = null
+  private balanceInFlight = false
 
   constructor(ctx: Context, public readonly config: Config) {
     super(ctx, 'tokenPanel')
@@ -206,6 +243,35 @@ export class TokenPanelService extends Service {
       ? config.dataDir
       : defaultDataDir()
     this.loadState()
+  }
+
+  /** Resolve the price table currently in effect (flat or peak/off-peak). */
+  resolvePrices(now: number): PriceEstimate {
+    if (this.config.priceMode !== 'peak-offpeak') {
+      return {
+        input: this.config.pricePerMInput,
+        cacheRead: this.config.pricePerMCacheRead,
+        output: this.config.pricePerMOutput,
+        mode: 'flat',
+      }
+    }
+    // Beijing peak hours: 9-12 and 14-18. Use the Beijing hour directly.
+    const beijing = new Date(now + 8 * 3_600_000)
+    const hour = beijing.getUTCHours()
+    const peak = (hour >= 9 && hour < 12) || (hour >= 14 && hour < 18)
+    return peak
+      ? {
+          input: this.config.pricePeakInput,
+          cacheRead: this.config.pricePeakCacheRead,
+          output: this.config.pricePeakOutput,
+          mode: 'peak',
+        }
+      : {
+          input: this.config.priceOffpeakInput,
+          cacheRead: this.config.priceOffpeakCacheRead,
+          output: this.config.priceOffpeakOutput,
+          mode: 'offpeak',
+        }
   }
 
   /** Restore the last-seen usage baselines from state.json (crash-safe). */
@@ -390,6 +456,17 @@ export class TokenPanelService extends Service {
 
     this.lastSampleAt = now
 
+    // Aggregate TPS: total output tokens delta across sessions per second.
+    let totalOutput = 0
+    for (const session of sessions) totalOutput += session.usage?.outputTokens ?? 0
+    let tps = 0
+    if (this.lastTpsAt > 0 && now > this.lastTpsAt) {
+      const delta = Math.max(0, totalOutput - this.lastTpsOutput)
+      tps = delta / ((now - this.lastTpsAt) / 1000)
+    }
+    this.lastTpsOutput = totalOutput
+    this.lastTpsAt = now
+
     // Hide sessions that never actually consumed anything (fresh empty
     // conversations created by clicking "New chat" show 0/≈0 and are noise).
     const meaningful = sessions.filter((session) =>
@@ -398,11 +475,9 @@ export class TokenPanelService extends Service {
     return {
       generatedAt: now,
       sessions: meaningful,
-      prices: {
-        input: this.config.pricePerMInput,
-        cacheRead: this.config.pricePerMCacheRead,
-        output: this.config.pricePerMOutput,
-      },
+      prices: this.resolvePrices(now),
+      tps,
+      budgetMonthly: this.config.budgetMonthly,
     }
   }
 
@@ -485,11 +560,44 @@ export class TokenPanelService extends Service {
       generatedAt: Date.now(),
       days: dayList,
       months: monthList,
-      prices: {
-        input: this.config.pricePerMInput,
-        cacheRead: this.config.pricePerMCacheRead,
-        output: this.config.pricePerMOutput,
-      },
+      prices: this.resolvePrices(Date.now()),
+    }
+  }
+
+  /** Fetch the DeepSeek account balance (cached 5 min, single-flight). */
+  async fetchBalance(): Promise<{ value: number; currency: string; at: number } | null> {
+    if (this.cachedBalance !== null && Date.now() - this.cachedBalance.at < 5 * 60_000) {
+      return this.cachedBalance
+    }
+    if (this.balanceInFlight) return this.cachedBalance
+    this.balanceInFlight = true
+    try {
+      const ctx = this.ctx as Context & {
+        credentials: { resolve(ref: string): { secret?: string } | undefined }
+      }
+      const credential = ctx.credentials.resolve('DEEPSEEK_API_KEY')
+      const key = credential?.secret
+      if (key === undefined || key === '') return null
+      const response = await fetch('https://api.deepseek.com/user/balance', {
+        headers: { Authorization: `Bearer ${key}` },
+      })
+      if (!response.ok) {
+        this.ctx.logger.warn(`token-panel: balance fetch HTTP ${response.status}`)
+        return this.cachedBalance
+      }
+      const body = (await response.json()) as {
+        balance_infos?: Array<{ currency?: string; total_balance?: string }>
+      }
+      const info = body.balance_infos?.[0]
+      const value = Number(info?.total_balance ?? NaN)
+      if (!Number.isFinite(value)) return this.cachedBalance
+      this.cachedBalance = { value, currency: info?.currency ?? 'CNY', at: Date.now() }
+      return this.cachedBalance
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`token-panel: balance fetch failed: ${String(error)}`)
+      return this.cachedBalance
+    } finally {
+      this.balanceInFlight = false
     }
   }
 }
@@ -551,6 +659,22 @@ export function apply(ctx: Context, config: Config): void {
         }
       },
     }), 'token-panel: stats route')
+
+    ctx.effect(() => webServer.register({
+      kind: 'exact',
+      path: '/plugins/dsh-token-panel/balance',
+      handler: async (_req, res) => {
+        try {
+          const balance = await service.fetchBalance()
+          json(res, 200, balance === null
+            ? { available: false }
+            : { available: true, value: balance.value, currency: balance.currency, at: balance.at })
+        } catch (error: unknown) {
+          ctx.logger.warn(`token-panel: balance route failed: ${String(error)}`)
+          json(res, 500, { error: String(error) })
+        }
+      },
+    }), 'token-panel: balance route')
   }
 
   registerWebSurface()

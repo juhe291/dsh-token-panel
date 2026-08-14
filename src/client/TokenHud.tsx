@@ -22,10 +22,13 @@ import css from './TokenHud.module.css'
 /** Host routes. */
 const SNAPSHOT_URL = '/plugins/dsh-token-panel/snapshot'
 const STATS_URL = '/plugins/dsh-token-panel/stats'
+const BALANCE_URL = '/plugins/dsh-token-panel/balance'
 /** Poll cadence (ms); keep in sync with the host default. */
 const POLL_MS = 1500
 /** Stats poll cadence (ms) — daily totals move slowly. */
 const STATS_POLL_MS = 10_000
+/** Balance poll cadence (ms) — the host caches its own 5-min fetch. */
+const BALANCE_POLL_MS = 60_000
 
 /** Time-range options for the history curve. */
 const RANGES: readonly { label: string; ms: number }[] = [
@@ -71,6 +74,10 @@ export interface TokenSnapshot {
   readonly generatedAt: number
   readonly sessions: readonly SessionTokenRow[]
   readonly prices?: PriceEstimate
+  /** Aggregate generation speed (output tokens per second). */
+  readonly tps?: number
+  /** Monthly budget in CNY (0 = disabled). */
+  readonly budgetMonthly?: number
 }
 
 /** One day's usage aggregate. */
@@ -106,6 +113,15 @@ export interface PriceEstimate {
   readonly input: number
   readonly cacheRead: number
   readonly output: number
+  readonly mode?: 'flat' | 'peak' | 'offpeak'
+}
+
+/** Account balance snapshot from the balance route. */
+export interface BalanceInfo {
+  readonly available: boolean
+  readonly value?: number
+  readonly currency?: string
+  readonly at?: number
 }
 
 /** Localized copy contract for the HUD (en/zh dictionaries in index.tsx). */
@@ -147,6 +163,12 @@ export interface TokenHudLocale {
   /** Template: '{total}' and '{out}' are replaced with formatted numbers. */
   readonly pollLive: string
   readonly pollStats: string
+  readonly pricePeak: string
+  readonly priceOffpeak: string
+  readonly balanceTitle: string
+  readonly balanceLabel: string
+  readonly budgetLabel: string
+  readonly budgetOver: string
   /** Template: '{error}' is replaced with the error message. */
   readonly disconnected: string
   readonly timeRange: string
@@ -341,8 +363,10 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
 }
 
 /** Collapsed pill shown when the panel is closed. */
-function CollapsedChip({ total, onClick, t }: {
+function CollapsedChip({ total, cumulative, tps, onClick, t }: {
   readonly total: number
+  readonly cumulative?: number
+  readonly tps?: number
   readonly onClick: () => void
   readonly t: Translate
 }) {
@@ -351,6 +375,12 @@ function CollapsedChip({ total, onClick, t }: {
       <span className={css.chipDot} aria-hidden />
       <span className={css.chipLabel}>TOKEN</span>
       <span className={css.chipValue}>{formatNumber(total)}</span>
+      {cumulative !== undefined && (
+        <span className={css.chipCumulative}>{t('approx')}{formatNumber(cumulative)}</span>
+      )}
+      {tps !== undefined && tps > 0 && (
+        <span className={css.chipTps}>{tps >= 10 ? Math.round(tps) : tps.toFixed(1)} t/s</span>
+      )}
     </button>
   )
 }
@@ -447,9 +477,11 @@ function StatBar({ label, value, max, input, output, cacheRead, cacheWrite, cost
 }
 
 /** The stats view: per-month and per-day usage bars, switched separately. */
-function StatsView({ stats, t }: {
+function StatsView({ stats, t, balance, budgetMonthly }: {
   readonly stats: TokenStats | null
   readonly t: Translate
+  readonly balance: BalanceInfo | null
+  readonly budgetMonthly: number
 }) {
   const [subView, setSubView] = useState<'days' | 'months'>('days')
 
@@ -474,6 +506,12 @@ function StatsView({ stats, t }: {
     t: Date.parse(`${month.month}-15T12:00:00`),
     total: month.total,
   })), [stats.months])
+  // This month's cost for the budget meter.
+  const nowDate = new Date()
+  const thisMonthKey = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}`
+  const monthCost = stats.months
+    .filter((month) => month.month === thisMonthKey)
+    .reduce((sum, month) => sum + estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, prices), 0)
   return (
     <div className={css.statsBody}>
       <div className={css.statsTotal}>
@@ -481,6 +519,28 @@ function StatsView({ stats, t }: {
         <span className={css.mono}>{formatNumber(totalAll)}</span>
         <span className={css.statsTotalSub}>{t('totalSub')} · {t('approx')}{formatCost(totalCost)}</span>
       </div>
+      {budgetMonthly > 0 && (
+        <div className={css.budgetRow}>
+          <span className={css.budgetLabel}>{t('budgetLabel')}</span>
+          <span className={css.budgetTrack}>
+            <span
+              className={css.budgetFill}
+              style={{ width: `${Math.min(100, (monthCost / budgetMonthly) * 100)}%` }}
+              data-over={monthCost > budgetMonthly}
+            />
+          </span>
+          <span className={css.budgetText}>
+            {formatCost(monthCost)} / {formatCost(budgetMonthly)}
+            {monthCost > budgetMonthly && ` · ${t('budgetOver')}`}
+          </span>
+        </div>
+      )}
+      {balance?.available === true && balance.value !== undefined && (
+        <div className={css.balanceRow}>
+          <span className={css.budgetLabel}>{t('balanceLabel')}</span>
+          <span className={css.balanceValue}>¥{balance.value.toFixed(2)}</span>
+        </div>
+      )}
       {hasData && (
         <div className={css.viewBar} role="group" aria-label={t('granularity')}>
           <button type="button" className={css.viewButton} data-active={subView === 'days'} onClick={() => { setSubView('days') }}>{t('byDay')}</button>
@@ -539,6 +599,7 @@ export function TokenHud({ t, sessionsList }: {
 }): JSX.Element {
   const [snapshot, setSnapshot] = useState<TokenSnapshot | null>(null)
   const [stats, setStats] = useState<TokenStats | null>(null)
+  const [balance, setBalance] = useState<BalanceInfo | null>(null)
   const [view, setView] = useState<'live' | 'stats'>('live')
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -546,6 +607,47 @@ export function TokenHud({ t, sessionsList }: {
   const [now, setNow] = useState<number>(Date.now())
   const [showAll, setShowAll] = useState(false)
   const inFlight = useRef(false)
+
+  // Draggable position (persisted in localStorage; defaults bottom-right).
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      const raw = window.localStorage.getItem('dsh-token-panel-pos')
+      if (raw === null) return null
+      const parsed = JSON.parse(raw) as { x: number; y: number }
+      if (typeof parsed.x === 'number' && typeof parsed.y === 'number') return parsed
+      return null
+    } catch {
+      return null
+    }
+  })
+  const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null)
+
+  const onDragStart = (event: React.PointerEvent<HTMLElement>): void => {
+    dragState.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      baseX: position?.x ?? 0,
+      baseY: position?.y ?? 0,
+    }
+  }
+  const onDragMove = (event: React.PointerEvent<HTMLElement>): void => {
+    const drag = dragState.current
+    if (drag === null) return
+    setPosition({
+      x: drag.baseX + (event.clientX - drag.startX),
+      y: drag.baseY + (event.clientY - drag.startY),
+    })
+  }
+  const onDragEnd = (): void => {
+    const drag = dragState.current
+    if (drag === null) return
+    dragState.current = null
+    try {
+      window.localStorage.setItem('dsh-token-panel-pos', JSON.stringify(position))
+    } catch {
+      // Storage unavailable; position simply resets next load.
+    }
+  }
 
   // Current session id from the session list (follows the open conversation).
   const currentSessionId = useSyncExternalStore(
@@ -581,21 +683,47 @@ export function TokenHud({ t, sessionsList }: {
     }
   }, [])
 
-  // Stats poll at a slower cadence.
+  // Stats poll at a slower cadence; switching to the stats view refreshes immediately.
+  const statsInFlight = useRef(false)
+  const fetchStats = async (): Promise<void> => {
+    if (statsInFlight.current) return
+    statsInFlight.current = true
+    try {
+      const response = await fetch(STATS_URL, { cache: 'no-store' })
+      if (!response.ok) return
+      const body = (await response.json()) as TokenStats
+      if (Array.isArray(body.days)) setStats(body)
+    } catch {
+      // Keep the last stats snapshot.
+    } finally {
+      statsInFlight.current = false
+    }
+  }
+  useEffect(() => {
+    let cancelled = false
+    if (view === 'stats') void fetchStats()
+    const timer = setInterval(() => { if (!cancelled) void fetchStats() }, STATS_POLL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [view])
+
+  // Balance poll (5 min cadence; the host caches its own fetch).
   useEffect(() => {
     let cancelled = false
     const tick = async (): Promise<void> => {
       try {
-        const response = await fetch(STATS_URL, { cache: 'no-store' })
+        const response = await fetch(BALANCE_URL, { cache: 'no-store' })
         if (!response.ok) return
-        const body = (await response.json()) as TokenStats
-        if (!cancelled && Array.isArray(body.days)) setStats(body)
+        const body = (await response.json()) as BalanceInfo
+        if (!cancelled) setBalance(body)
       } catch {
-        // Keep the last stats snapshot.
+        // Keep the last balance snapshot.
       }
     }
     void tick()
-    const timer = setInterval(() => { void tick() }, STATS_POLL_MS)
+    const timer = setInterval(() => { void tick() }, BALANCE_POLL_MS)
     return () => {
       cancelled = true
       clearInterval(timer)
@@ -606,14 +734,21 @@ export function TokenHud({ t, sessionsList }: {
     if (snapshot === null) return { total: 0, output: 0 }
     let total = 0
     let output = 0
+    let cumulative = 0
     for (const row of snapshot.sessions) {
       total += row.totalTokens
       output += row.usage?.outputTokens ?? 0
+      cumulative += (row.usage?.uncachedInputTokens ?? 0)
+        + (row.usage?.outputTokens ?? 0)
+        + (row.usage?.cacheReadTokens ?? 0)
+        + (row.usage?.cacheWriteTokens ?? 0)
     }
-    return { total, output }
+    return { total, output, cumulative }
   }, [snapshot])
 
   const prices = snapshot?.prices ?? { input: 1, cacheRead: 0.02, output: 2 }
+  const tps = snapshot?.tps ?? 0
+  const budgetMonthly = snapshot?.budgetMonthly ?? 0
 
   const topHistory = useMemo(() => {
     if (snapshot === null || snapshot.sessions.length === 0) return []
@@ -625,20 +760,36 @@ export function TokenHud({ t, sessionsList }: {
     return filterRange(source?.history ?? [], now, rangeMs)
   }, [snapshot, now, rangeMs, currentSessionId])
 
+  const dragHandlers = {
+    onPointerDown: onDragStart,
+    onPointerMove: onDragMove,
+    onPointerUp: onDragEnd,
+    onPointerLeave: onDragEnd,
+  }
+
+  const hostStyle: React.CSSProperties = position !== null
+    ? { right: 'auto', bottom: 'auto', left: position.x, top: position.y }
+    : {}
+
   if (snapshot === null) {
     return (
-      <div className={css.host}>
+      <div className={css.host} style={hostStyle}>
         <CollapsedChip total={0} onClick={() => { setOpen(true) }} t={t} />
       </div>
     )
   }
 
   return (
-    <div className={css.host}>
-      {!open && <CollapsedChip total={totals.total} onClick={() => { setOpen(true) }} t={t} />}
+    <div className={css.host} style={hostStyle}>
+      {!open && (
+        <div {...dragHandlers} style={{ cursor: 'grab' }}>
+          <CollapsedChip total={totals.total} cumulative={totals.cumulative} tps={tps}
+            onClick={() => { setOpen(true) }} t={t} />
+        </div>
+      )}
       {open && (
         <aside className={css.panel} data-token-panel>
-          <header className={css.head}>
+          <header className={css.head} {...dragHandlers}>
             <span className={css.title}>
               <span className={css.titleMark} aria-hidden />{t('token')}
             </span>
@@ -711,7 +862,7 @@ export function TokenHud({ t, sessionsList }: {
             </>
           ) : (
             <div className={css.body}>
-              <StatsView stats={stats} t={t} />
+              <StatsView stats={stats} t={t} balance={balance} budgetMonthly={budgetMonthly} />
             </div>
           )}
           <footer className={css.foot}>
@@ -721,8 +872,23 @@ export function TokenHud({ t, sessionsList }: {
                 : view === 'live'
                   ? fill(t('pollLive'), { total: formatNumber(totals.total), out: formatNumber(totals.output) })
                   : t('pollStats')}
+              {tps > 0 && (
+                <span className={css.footTps}> · {tps >= 10 ? Math.round(tps) : tps.toFixed(1)} t/s</span>
+              )}
+              {prices.mode !== undefined && prices.mode !== 'flat' && (
+                <span className={css.footPrice} data-mode={prices.mode}>
+                  {prices.mode === 'peak' ? t('pricePeak') : t('priceOffpeak')}
+                </span>
+              )}
             </span>
-            <span className={css.mono}>{new Date(snapshot.generatedAt).toLocaleTimeString()}</span>
+            <span className={css.footRight}>
+              {balance?.available === true && balance.value !== undefined && (
+                <span className={css.footBalance} title={t('balanceTitle')}>
+                  ¥{balance.value.toFixed(2)}
+                </span>
+              )}
+              <span className={css.mono}>{new Date(snapshot.generatedAt).toLocaleTimeString()}</span>
+            </span>
           </footer>
         </aside>
       )}

@@ -26,12 +26,30 @@ export declare const inject: string[];
 export interface Config {
     /** Browser panel poll cadence in milliseconds. */
     pollInterval: number;
-    /** Display-only CNY price per 1M uncached input tokens. */
+    /** Display-only CNY price per 1M uncached input tokens (flat mode). */
     pricePerMInput: number;
-    /** Display-only CNY price per 1M cache-hit (read) tokens. */
+    /** Display-only CNY price per 1M cache-hit (read) tokens (flat mode). */
     pricePerMCacheRead: number;
-    /** Display-only CNY price per 1M output tokens. */
+    /** Display-only CNY price per 1M output tokens (flat mode). */
     pricePerMOutput: number;
+    /** Pricing mode: 'flat' uses the fixed prices above; 'peak-offpeak' switches
+     *  by Beijing time (peak 9-12 & 14-18, off-peak otherwise) using the
+     *  peak/off-peak price keys below. */
+    priceMode: 'flat' | 'peak-offpeak';
+    /** Peak-period uncached input price (CNY / 1M tokens). */
+    pricePeakInput: number;
+    /** Peak-period cache-hit price (CNY / 1M tokens). */
+    pricePeakCacheRead: number;
+    /** Peak-period output price (CNY / 1M tokens). */
+    pricePeakOutput: number;
+    /** Off-peak uncached input price (CNY / 1M tokens). */
+    priceOffpeakInput: number;
+    /** Off-peak cache-hit price (CNY / 1M tokens). */
+    priceOffpeakCacheRead: number;
+    /** Off-peak output price (CNY / 1M tokens). */
+    priceOffpeakOutput: number;
+    /** Monthly budget in CNY for the budget meter; 0 disables the meter. */
+    budgetMonthly: number;
     /** Directory for durable per-day usage logs (default ~/.dsh/cache/dsh-token-panel). */
     dataDir?: string;
 }
@@ -80,12 +98,18 @@ export interface TokenPanelSnapshot {
     readonly sessions: readonly SessionTokenSnapshot[];
     /** Display-only price estimates (CNY per 1M tokens). */
     readonly prices: PriceEstimate;
+    /** Aggregate generation speed (output tokens / second across sessions). */
+    readonly tps: number;
+    /** Monthly budget in CNY (0 = meter disabled). */
+    readonly budgetMonthly: number;
 }
 /** Display-only price estimate (CNY per 1M tokens). */
 export interface PriceEstimate {
     readonly input: number;
     readonly cacheRead: number;
     readonly output: number;
+    /** Pricing mode in effect: flat, peak or off-peak. */
+    readonly mode: 'flat' | 'peak' | 'offpeak';
 }
 /** One day's usage aggregate. */
 export interface DayStat {
@@ -126,7 +150,13 @@ export declare class TokenPanelService extends Service {
     private readonly lastUsage;
     private lastSampleAt;
     private readonly dataDir;
+    private lastTpsOutput;
+    private lastTpsAt;
+    private cachedBalance;
+    private balanceInFlight;
     constructor(ctx: Context, config: Config);
+    /** Resolve the price table currently in effect (flat or peak/off-peak). */
+    resolvePrices(now: number): PriceEstimate;
     /** Restore the last-seen usage baselines from state.json (crash-safe). */
     private loadState;
     /** Persist last-seen baselines atomically (tmp + rename). */
@@ -137,5 +167,11 @@ export declare class TokenPanelService extends Service {
     collect(): TokenPanelSnapshot;
     /** Aggregate all durable per-day logs into day and month statistics. */
     collectStats(): TokenStats;
+    /** Fetch the DeepSeek account balance (cached 5 min, single-flight). */
+    fetchBalance(): Promise<{
+        value: number;
+        currency: string;
+        at: number;
+    } | null>;
 }
 export declare function apply(ctx: Context, config: Config): void;

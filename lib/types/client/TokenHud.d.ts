@@ -50,6 +50,10 @@ export interface TokenSnapshot {
     readonly generatedAt: number;
     readonly sessions: readonly SessionTokenRow[];
     readonly prices?: PriceEstimate;
+    /** Aggregate generation speed (output tokens per second). */
+    readonly tps?: number;
+    /** Monthly budget in CNY (0 = disabled). */
+    readonly budgetMonthly?: number;
 }
 /** One day's usage aggregate. */
 export interface DayStat {
@@ -81,6 +85,14 @@ export interface PriceEstimate {
     readonly input: number;
     readonly cacheRead: number;
     readonly output: number;
+    readonly mode?: 'flat' | 'peak' | 'offpeak';
+}
+/** Account balance snapshot from the balance route. */
+export interface BalanceInfo {
+    readonly available: boolean;
+    readonly value?: number;
+    readonly currency?: string;
+    readonly at?: number;
 }
 /** Localized copy contract for the HUD (en/zh dictionaries in index.tsx). */
 export interface TokenHudLocale {
@@ -121,6 +133,12 @@ export interface TokenHudLocale {
     /** Template: '{total}' and '{out}' are replaced with formatted numbers. */
     readonly pollLive: string;
     readonly pollStats: string;
+    readonly pricePeak: string;
+    readonly priceOffpeak: string;
+    readonly balanceTitle: string;
+    readonly balanceLabel: string;
+    readonly budgetLabel: string;
+    readonly budgetOver: string;
     /** Template: '{error}' is replaced with the error message. */
     readonly disconnected: string;
     readonly timeRange: string;
