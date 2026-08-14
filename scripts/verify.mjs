@@ -41,7 +41,7 @@ check(patch.includes(pkg.name), 'cordis.patch.yml does not reference package nam
 
 // Docs.
 check(existsSync(join(root, 'README.md')), 'README.md missing')
-check(existsSync(join(root, 'README_CN.md')), 'README_CN.md missing')
+check(existsSync(join(root, 'README.en.md')), 'README.en.md missing')
 check(existsSync(join(root, 'LICENSE')), 'LICENSE missing')
 
 // Bundle manifest fields.
