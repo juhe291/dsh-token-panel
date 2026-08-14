@@ -832,7 +832,9 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
               />
             </span>
           )}
-          {renderEditor('budget', budgetMonthly > 0 ? budgetMonthly : null, budgetMonthly > 0 ? `¥${formatCost(budgetMonthly)}` : t('notSet'))}
+          {/* "used this month / budget" — the used amount resets each month. */}
+          {renderEditor('budget', budgetMonthly > 0 ? budgetMonthly : null,
+            budgetMonthly > 0 ? `${formatCost(monthCost)} / ${formatCost(budgetMonthly)}` : t('notSet'))}
         </div>
         <div className={`${css.editRow} ${css.balanceEditRow}`}>
           <span className={css.editLabel}>{t('balanceLabel')}</span>
@@ -865,14 +867,6 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
 
       {hasData && listCount > 0 && (
         <section className={css.section}>
-          <div className={css.sectionLabel}>
-            <span>{subView === 'months' ? t('byMonth') : t('byDay')}</span>
-            <span className={css.sectionCount}>
-              {subView === 'months'
-                ? fill(t('monthsCount'), { count: listCount })
-                : fill(t('daysCount'), { count: listCount })}
-            </span>
-          </div>
           {listExpanded && listItems}
           <button
             type="button"
@@ -1346,13 +1340,15 @@ export function TokenHud({ t, sessionsList }: {
   }
   useEffect(() => {
     let cancelled = false
-    if (view === 'stats') void fetchStats()
+    // Fetch on mount regardless of the view so the footer's "current cost"
+    // readout is identical in both live and stats views (no ¥0.00 flash).
+    void fetchStats()
     const timer = setInterval(() => { if (!cancelled) void fetchStats() }, STATS_POLL_MS)
     return () => {
       cancelled = true
       clearInterval(timer)
     }
-  }, [view])
+  }, [])
 
   // Balance poll (5 min cadence; the host caches its own fetch).
   useEffect(() => {
