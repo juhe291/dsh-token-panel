@@ -15,6 +15,13 @@
   font-family: var(--token-panel-mono);
 }
 
+/* Keep every element in the HUD on the mono stack — the host shell's global
+   styles (buttons, inputs, etc.) must not leak a different font in. */
+.host,
+.host :is(button, input, select, textarea, span, div) {
+  font-family: var(--token-panel-mono) !important;
+}
+
 /* Hover hint bubble on the pill (above) and the panel header (below). */
 [data-hud-handle] {
   position: relative;
@@ -893,6 +900,14 @@
 
 .balanceEditRow .editValue {
   color: var(--dsw-alias-state-business-primary);
+}
+
+/* Unset budget/balance: grey dashed placeholder, still clickable to edit. */
+.editValue[data-placeholder] {
+  color: var(--dsw-alias-label-tertiary);
+  font-weight: 400;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--dsw-alias-line-strong) 45%, transparent);
 }
 
 .editInput {

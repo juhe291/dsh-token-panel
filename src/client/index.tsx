@@ -107,6 +107,7 @@ export function apply(ctx: ClientContext): void {
     costNow: 'Current cost',
     budgetInput: 'Edit monthly budget',
     balanceInput: 'Edit account balance',
+    notSet: 'Not set',
   }
   const zh: TokenHudLocale = {
     token: 'TOKEN HUD',
@@ -190,6 +191,7 @@ export function apply(ctx: ClientContext): void {
     costNow: '当前花费',
     budgetInput: '修改本月预算',
     balanceInput: '修改账户余额',
+    notSet: '未设置',
   }
 
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'token-panel: locale')

@@ -223,6 +223,8 @@ export interface TokenHudLocale {
     /** aria-labels for the inline editors. */
     readonly budgetInput: string;
     readonly balanceInput: string;
+    /** Placeholder when budget/balance is not set yet. */
+    readonly notSet: string;
 }
 type Translate = (key: keyof TokenHudLocale) => string;
 /** The top-level HUD: polling, view switching and layout. */

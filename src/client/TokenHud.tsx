@@ -295,6 +295,8 @@ export interface TokenHudLocale {
   /** aria-labels for the inline editors. */
   readonly budgetInput: string
   readonly balanceInput: string
+  /** Placeholder when budget/balance is not set yet. */
+  readonly notSet: string
 }
 
 type Translate = (key: keyof TokenHudLocale) => string
@@ -736,6 +738,16 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
   /** Daily/monthly list collapsed by default; expand reveals everything. */
   const [listExpanded, setListExpanded] = useState(false)
 
+  // Hooks must run before any conditional return (React rules).
+  const dayPoints = useMemo<readonly HistoryPoint[]>(() => stats === null ? [] : stats.days.map((day) => ({
+    t: Date.parse(`${day.date}T12:00:00`),
+    total: day.total,
+  })), [stats])
+  const monthPoints = useMemo<readonly HistoryPoint[]>(() => stats === null ? [] : stats.months.map((month) => ({
+    t: Date.parse(`${month.month}-15T12:00:00`),
+    total: month.total,
+  })), [stats])
+
   if (stats === null) {
     return <span className={css.empty}>{t('loading')}</span>
   }
@@ -744,15 +756,6 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
   const maxDay = Math.max(...stats.days.map((day) => day.total), 1)
   const totalAll = stats.months.reduce((sum, month) => sum + month.total, 0)
   const hasData = stats.months.length > 0 || stats.days.length > 0
-  // Convert day/month aggregates to sparkline points (midnight / month-start timestamps).
-  const dayPoints = useMemo<readonly HistoryPoint[]>(() => stats.days.map((day) => ({
-    t: Date.parse(`${day.date}T12:00:00`),
-    total: day.total,
-  })), [stats.days])
-  const monthPoints = useMemo<readonly HistoryPoint[]>(() => stats.months.map((month) => ({
-    t: Date.parse(`${month.month}-15T12:00:00`),
-    total: month.total,
-  })), [stats.months])
   // This month's cost for the budget meter.
   const nowDate = new Date()
   const thisMonthKey = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}`
@@ -761,7 +764,7 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
     .reduce((sum, month) => sum + estimateCost(month.input, month.cacheRead, month.cacheWrite, month.output, prices), 0)
 
   /** Render the editable value: compact box with hover hint, or input when editing. */
-  const renderEditor = (kind: 'budget' | 'balance', value: number, display: string): React.ReactNode => {
+  const renderEditor = (kind: 'budget' | 'balance', value: number | null, display: string): React.ReactNode => {
     if (editing === kind) {
       return (
         <input
@@ -784,7 +787,8 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
     return (
       <span
         className={css.editValue}
-        onClick={() => { setEditDraft(String(value)); setEditing(kind) }}
+        data-placeholder={value === null || undefined}
+        onClick={() => { setEditDraft(value !== null ? String(value) : ''); setEditing(kind) }}
         onPointerEnter={(event) => { onHint(t('editHint'), event.currentTarget, true) }}
         onPointerLeave={onHintEnd}
       >
@@ -817,9 +821,9 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
             <span className={css.statsTotalSub}>{t('totalSub')} · {t('approx')}{formatCost(totalCost)}</span>
           </div>
         </div>
-        {budgetMonthly > 0 && (
-          <div className={css.editRow}>
-            <span className={css.editLabel}>{t('budgetLabel')}</span>
+        <div className={css.editRow}>
+          <span className={css.editLabel}>{t('budgetLabel')}</span>
+          {budgetMonthly > 0 && (
             <span className={css.budgetTrack}>
               <span
                 className={css.budgetFill}
@@ -827,15 +831,13 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
                 data-over={monthCost > budgetMonthly}
               />
             </span>
-            {renderEditor('budget', budgetMonthly, `¥${formatCost(budgetMonthly)}`)}
-          </div>
-        )}
-        {effectiveBalance !== null && (
-          <div className={`${css.editRow} ${css.balanceEditRow}`}>
-            <span className={css.editLabel}>{t('balanceLabel')}</span>
-            {renderEditor('balance', effectiveBalance, `¥${effectiveBalance.toFixed(2)}`)}
-          </div>
-        )}
+          )}
+          {renderEditor('budget', budgetMonthly > 0 ? budgetMonthly : null, budgetMonthly > 0 ? `¥${formatCost(budgetMonthly)}` : t('notSet'))}
+        </div>
+        <div className={`${css.editRow} ${css.balanceEditRow}`}>
+          <span className={css.editLabel}>{t('balanceLabel')}</span>
+          {renderEditor('balance', effectiveBalance, effectiveBalance !== null ? `¥${effectiveBalance.toFixed(2)}` : t('notSet'))}
+        </div>
         <div className={css.editNote}>{t('balanceLocalNote')}</div>
       </section>
 
