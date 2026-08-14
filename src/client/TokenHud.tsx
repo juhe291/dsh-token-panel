@@ -132,11 +132,12 @@ export type DefaultPos =
   | { readonly kind: 'preset'; readonly preset: 'tl' | 'tr' | 'bl' | 'br' }
   | { readonly kind: 'custom'; readonly x: number; readonly y: number }
 
-/** Preset corner → screen coordinates for the panel (360 wide, ~520 tall). */
-function presetCornerPosition(preset: 'tl' | 'tr' | 'bl' | 'br'): { x: number; y: number } {
+/** Preset corner → screen coordinates. Accepts the actual HUD size so the
+ *  bottom corners land on the true bottom edge (not offset by a guess). */
+function presetCornerPosition(preset: 'tl' | 'tr' | 'bl' | 'br', size?: { width: number; height: number }): { x: number; y: number } {
   const margin = 12
-  const w = 360
-  const h = 520
+  const w = size?.width ?? 360
+  const h = size?.height ?? 520
   const maxX = Math.max(margin, window.innerWidth - w - margin)
   const maxY = Math.max(margin, window.innerHeight - h - margin)
   switch (preset) {
@@ -953,12 +954,17 @@ export function TokenHud({ t, sessionsList }: {
     }
     const rawX = drag.baseX + dx
     const rawY = drag.baseY + dy
-    // Clamp with a visible sliver on ALL four sides: the HUD may hang
-    // off-screen but must always keep at least 48px reachable.
+    // Clamp with a visible sliver: the HUD may hang off-screen but must keep
+    // at least 48px reachable. The TOP edge keeps the full drag handle
+    // (title bar / pill) inside the viewport, otherwise an upward drag
+    // strands the only grabbable area off-screen.
     const VISIBLE = 48
     const minX = VISIBLE - drag.width
     const maxX = window.innerWidth - VISIBLE
-    const minY = VISIBLE - drag.height
+    // Handle height: the pill drags by its whole body; the panel drags by
+    // the header (about 46px). Keep the handle visible at the top.
+    const handleH = open ? 46 : drag.height
+    const minY = handleH - drag.height
     const maxY = window.innerHeight - VISIBLE
     drag.last = {
       x: Math.min(Math.max(rawX, minX), Math.max(maxX, minX)),
@@ -1010,7 +1016,7 @@ export function TokenHud({ t, sessionsList }: {
     if (def === null || def.kind === 'corner') {
       target = null
     } else if (def.kind === 'preset') {
-      target = presetCornerPosition(def.preset)
+      target = presetCornerPosition(def.preset, hudSize())
     } else {
       target = { x: def.x, y: def.y }
     }
@@ -1038,11 +1044,25 @@ export function TokenHud({ t, sessionsList }: {
     }
   }
 
+  /** Current HUD dimensions for preset math (panel when open, pill fallback). */
+  const hudSize = (): { width: number; height: number } => {
+    if (open && panelRef.current !== null) {
+      const rect = panelRef.current.getBoundingClientRect()
+      return { width: rect.width, height: rect.height }
+    }
+    const hostEl = document.querySelector('[data-token-hud]')
+    if (hostEl !== null) {
+      const rect = hostEl.getBoundingClientRect()
+      if (rect.width > 0 && rect.height > 0) return { width: rect.width, height: rect.height }
+    }
+    return { width: 360, height: 520 }
+  }
+
   /** Apply a preset corner as the default position (and move there now). */
   const applyPreset = (preset: 'tl' | 'tr' | 'bl' | 'br'): void => {
     const next: DefaultPos = { kind: 'preset', preset }
     setDefaultPos(next)
-    let target = presetCornerPosition(preset)
+    let target = presetCornerPosition(preset, hudSize())
     if (open && panelRef.current !== null) {
       const rect = panelRef.current.getBoundingClientRect()
       const maxX = Math.max(8, window.innerWidth - rect.width - 8)
