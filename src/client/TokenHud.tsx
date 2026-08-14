@@ -376,7 +376,8 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
     const tSpan = Math.max(t1 - t0, 1)
     // Reserve a 14px bottom band for tick labels so they never clip.
     const y = (value: number): number => height - 18 - ((value - min) / span) * (height - 28)
-    const x = (t: number): number => AXIS_W + ((t - t0) / tSpan) * plotW
+    // Right edge keeps 4px clearance so the last dot never clips the panel.
+    const x = (t: number): number => AXIS_W + ((t - t0) / tSpan) * (plotW - 4)
     const coords = points.map((point) => [x(point.t), y(point.total)] as const)
     const line = coords.map(([xValue, yValue], index) =>
       `${index === 0 ? 'M' : 'L'}${xValue.toFixed(1)},${yValue.toFixed(1)}`).join(' ')
@@ -456,7 +457,7 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
       ))}
       {path.ticks.map((tick) => (
         <text key={tick.t} x={tick.x} y={height - 5}
-          textAnchor="middle"
+          textAnchor={tick.x < 60 ? 'start' : tick.x > width - 60 ? 'end' : 'middle'}
           className={css.sparkTick}>
           {tickFormat(tick.t)}
         </text>
