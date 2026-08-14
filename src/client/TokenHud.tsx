@@ -196,6 +196,14 @@ function formatNumber(value: number): string {
   return String(Math.round(value))
 }
 
+/** Axis-value formatter: small values keep one decimal (0.5 stays 0.5). */
+function formatAxisNumber(value: number): string {
+  if (value >= 1_000) return formatNumber(value)
+  if (value >= 10) return String(Math.round(value))
+  const rounded = Math.round(value * 10) / 10
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+}
+
 /** Format a timestamp as HH:MM:SS. */
 function formatTime(t: number): string {
   const date = new Date(t)
@@ -420,7 +428,7 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
       {(path.kind === 'line' || path.kind === 'dot') && (() => {
         const cx = path.kind === 'line' ? path.last[0] : path.x
         const cy = path.kind === 'line' ? path.last[1] : path.y
-        const text = formatNumber(points[points.length - 1]?.total ?? 0)
+        const text = formatAxisNumber(points[points.length - 1]?.total ?? 0)
         const labelW = text.length * 5 + 8
         return (
           <>
@@ -441,7 +449,7 @@ function Sparkline({ points, now, width = 336, height = 72, tickFormat = formatT
         <text key={label.y} x={AXIS_W - 5} y={label.y + 3}
           textAnchor="end"
           className={css.sparkYTick}>
-          {formatNumber(label.value)}
+          {formatAxisNumber(label.value)}
         </text>
       ))}
       {path.ticks.map((tick) => (
