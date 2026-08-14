@@ -17,14 +17,7 @@
   <img src="assets/hero.png" alt="dsh-token-panel 封面" width="100%">
 </p>
 
-> ℹ️ **封面声明**：上图是合成渲染的**示意图**（非真实截图），仅作宣传展示。真实界面请见下方截图。
-
-<p align="center">
-  <img src="assets/screenshot.png" alt="dsh-token-panel 实时视图" width="49%">
-  <img src="assets/screenshot-stats.png" alt="dsh-token-panel 统计视图" width="49%">
-</p>
-
-> 📷 左：实时视图（峰值速率 + 会话花费）；右：统计视图（累计消耗 + 可编辑预算/余额 + 按日/按月明细）。
+> 📷 封面中的两张面板均为**真实界面截图**（左：实时视图；右：统计视图）。
 
 ---
 
@@ -74,16 +67,17 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 
 ### 实时视图
 
-- 会话行：**主数字 = 当前上下文压力**（k 单位）；灰色 `≈` 小字 = 累计消耗（M 单位，含缓存读）；**绿色 `¥` 数字 = 该会话估算花费**
+- 会话行：**主数字 = 当前上下文压力**（k 单位）；灰色 `≈` 小字 = 累计消耗（M 单位，含缓存读）；**绿色 `¥` 数字 = 该会话估算花费**（按会话实际使用的模型计价）
 - 点会话行展开详情（输入/输出/缓存读/缓存写、压力/预计/容量、成本、占用进度条）与消耗曲线
-- 曲线：**Y 轴自动刻度**（1/2/2.5/5×10ⁿ 取整 + 滞回，空闲时归零）+ 网格线 + 最新点虚线引导线与实时数值标签 + X 轴时间刻度
-- 2m / 5m / 15m 切换曲线时间窗口
+- 曲线：**Y 轴自动刻度**（1/2/2.5/5×10ⁿ 取整 + 滞回，空闲时归零，单位标签常驻）+ 网格线 + 最新点虚线引导线与浮动数值标签 + X 轴时间刻度
+- 顶部显示窗口内**峰值消耗速率**（t/s）；2m / 5m / 15m 切换曲线时间窗口
 - 面板跟随当前对话；「展开全部」显示历史会话（重启后仍保留）
 
 ### 统计视图
 
-- 「按日 / 按月」切换粒度：全部日期/月份逐条展示（柱条 + token 数 + 估算成本）+ 趋势曲线
-- 顶部累计消耗 + 约 ¥ 成本；配置 `budgetMonthly` 后显示本月预算进度条（超支变红）；自动拉取 DeepSeek 账户余额
+- 顶部**累计消耗**大字单行显示（token 总数 + ≈¥ 成本）
+- **本月预算 / 账户余额可编辑**：点击数值行内编辑（回车保存 / Esc 取消）；余额随 token 消耗**本地估算递减**（刷新后保持），未设置时回退 API 拉取的官网余额
+- 「按日 / 按月」切换粒度：趋势曲线 + 明细列表（默认收起，点「展开全部」查看）
 - 数据按天持久化（JSONL），重启不丢
 
 ---
@@ -98,19 +92,20 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 |---|---|
 | 会话列表 | 每个会话一行：**标题 + 当前上下文压力 + 累计消耗 + 会话花费**，标题来自 DSH 会话标题服务 |
 | 会话详情 | 点击展开：输入 / 输出 / 缓存读 / 缓存写、压力 / 预计 / 容量、估算成本、上下文占用进度条（>85% 变红） |
-| 实时曲线 | 每会话独立 SVG 面积曲线，带 Y 轴自动刻度（1/2/2.5/5×10ⁿ 取整 + 滞回，空闲归零）、X 轴时间刻度、最新点虚线引导线和实时数值标签，支持 **2m / 5m / 15m** 范围切换 |
+| 实时曲线 | 每会话独立 SVG 面积曲线，带 Y 轴自动刻度（1/2/2.5/5×10ⁿ 取整 + 滞回，空闲归零，单位标签常驻）、X 轴时间刻度、最新点虚线引导线和浮动数值标签，支持 **2m / 5m / 15m** 范围切换 |
+| 峰值速率 | 曲线区顶部显示窗口内峰值消耗速率（t/s） |
 | 跟随当前会话 | 默认只显示当前打开的对话；历史会话折叠在「展开全部」后面（重启后仍保留） |
 | 空会话过滤 | 新开但 0 token 的对话完全不显示 |
-| TPS | 胶囊与底部栏实时显示生成速度（t/s） |
+| TPS | 底部栏实时显示生成速度（t/s） |
 
 ### 📊 统计视图
 
 | 能力 | 说明 |
 |---|---|
-| 按日 / 按月 | 独立切换，全部日期 / 月份逐条展示（柱条 + token 数 + 估算成本） |
+| 按日 / 按月 | 独立切换，趋势曲线 + 明细列表（默认收起，点「展开全部」查看全部日期 / 月份） |
 | 趋势曲线 | 每日 / 每月消耗的 SVG 曲线，刻度显示日期（M/D），含 Y 轴刻度 |
-| 累计消耗 | 顶部汇总：累计 token 总数 + 约 ¥ 估算成本 |
-| 预算与余额 | 配置 `budgetMonthly` 显示本月预算进度条（超支变红）；自动拉取 DeepSeek 账户余额 |
+| 累计消耗 | 顶部大字单行汇总：累计 token 总数 + ≈¥ 估算成本 |
+| 预算与余额 | **点击数值行内编辑**（回车保存 / Esc 取消）；预算显示本月已用 / 总额进度条（超支变红）；余额随 token 消耗本地估算递减，未设置时回退 API 拉取的官网余额 |
 | 持久化 | 数据按天写入磁盘（JSONL），**重启不丢**，越用越完整 |
 
 > ⚠️ **数字口径提示**：统计视图的「按日 / 按月」是**历史累计消耗**（输入 + 输出 + **缓存读**全部累加），缓存读通常是最大头，所以单日就可能上亿 token（显示 M 单位）；而实时视图的数字是**当前上下文压力**（此刻占用的 token，几十万级，显示 k 单位）。**两个数字不是同一个量**，看到「实时 400k / 统计 100M」的差异是正常的，不要担心。
@@ -118,7 +113,9 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 
 ### 💰 成本估算
 
-按 **DeepSeek 官方价**（人民币 / 百万 token）分级计价：缓存命中、未命中输入、输出分别计费，仅作展示参考，实际以官网账单为准。支持峰谷计价模式（见配置）。
+- **按模型分别计价**：内置 `deepseek-v4-flash` 与 `deepseek-v4-pro` 两套官方价表（缓存命中 / 未命中输入 / 输出分别计费），会话和统计都按实际使用的模型套价，切换过模型的会话不会整段按单一模型计价
+- **auto 价格模式**（默认）：2026-08-17 零时（北京时间）前自动使用 flat 旧价，之后自动切换 DeepSeek 官方峰谷价（高峰 9-12、14-18），底部徽章同步显示「标准价 / 高峰价 / 空闲价」，无需手动改配置
+- 估算仅作展示参考，实际以官网账单为准
 
 ---
 
@@ -131,33 +128,44 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
   name: dsh-token-panel
   config:
     pollInterval: 1500          # 实时轮询间隔 (ms)
+    priceMode: auto             # auto = 8/17 前 flat 旧价、之后自动切峰谷；flat / peak-offpeak 固定模式
+    # 全局兜底价格（模型未在 modelPrices 中列出时使用；默认 = flash 价）
     pricePerMInput: 1           # 未命中输入价格 (CNY / 百万 token)
     pricePerMCacheRead: 0.02    # 缓存命中价格 (CNY / 百万 token)
     pricePerMOutput: 2          # 输出价格 (CNY / 百万 token)
-    priceMode: flat             # flat = 固定价；peak-offpeak = 峰谷价
-    pricePeakInput: 3           # 高峰未命中输入价（priceMode=peak-offpeak 时）
+    # 峰谷价（priceMode 切到 peak-offpeak 或 8/17 后 auto 生效）
+    pricePeakInput: 3           # 高峰未命中输入价
     pricePeakCacheRead: 0.1     # 高峰缓存命中价
     pricePeakOutput: 9          # 高峰输出价
     priceOffpeakInput: 1.5      # 空闲未命中输入价
     priceOffpeakCacheRead: 0.05 # 空闲缓存命中价
     priceOffpeakOutput: 4.5     # 空闲输出价
-    budgetMonthly: 0            # 月预算 (CNY)；0 = 关闭预算条
+    # 按模型价表（CNY / 百万 token）：会话和统计按实际使用模型套价
+    modelPrices:
+      deepseek-v4-flash:
+        flat:    { hit: 0.02,  miss: 1,   output: 2 }
+        peak:    { hit: 0.10,  miss: 3,   output: 9 }
+        offpeak: { hit: 0.05,  miss: 1.5, output: 4.5 }
+      deepseek-v4-pro:
+        flat:    { hit: 0.025, miss: 3,   output: 6 }
+        peak:    { hit: 0.30,  miss: 9,   output: 27 }
+        offpeak: { hit: 0.15,  miss: 4.5, output: 13.5 }
+    budgetMonthly: 0            # 月预算 (CNY)；0 = 关闭（也可在统计视图点击数值直接设置）
     # dataDir: ~/.dsh/cache/dsh-token-panel   # 持久化目录（可选）
 ```
 
 | 键 | 默认 | 说明 |
 |---|---|---|
 | `pollInterval` | `1500` | 浏览器实时轮询间隔（毫秒） |
-| `pricePerMInput` | `1` | 每百万未命中输入 token 的估算价格（CNY，仅展示） |
-| `pricePerMCacheRead` | `0.02` | 每百万缓存命中 token 的估算价格（CNY，仅展示） |
-| `pricePerMOutput` | `2` | 每百万输出 token 的估算价格（CNY，仅展示） |
-| `priceMode` | `flat` | 计价模式：`flat` 用上面三个固定价；`peak-offpeak` 按北京时间峰谷自动切换（高峰 9-12、14-18） |
-| `pricePeak*` | `3 / 0.1 / 9` | 高峰时段价格（`peak-offpeak` 模式） |
-| `priceOffpeak*` | `1.5 / 0.05 / 4.5` | 空闲时段价格（`peak-offpeak` 模式） |
-| `budgetMonthly` | `0` | 月预算（CNY），>0 时统计视图显示预算进度条，超支变红 |
+| `priceMode` | `auto` | 计价模式：`auto` 在 2026-08-17 零时自动从 flat 切到峰谷价；`flat` / `peak-offpeak` 固定 |
+| `pricePerM*` | `1 / 0.02 / 2` | 全局兜底价格（每百万 token，CNY，仅展示） |
+| `pricePeak*` | `3 / 0.1 / 9` | 高峰时段兜底价格（北京时间 9-12、14-18） |
+| `priceOffpeak*` | `1.5 / 0.05 / 4.5` | 空闲时段兜底价格 |
+| `modelPrices` | 内置 flash + pro | 按模型价表（flat / peak / offpeak 三档），覆盖或新增模型 |
+| `budgetMonthly` | `0` | 月预算（CNY），>0 显示预算进度条；也可在统计视图点击数值直接设置 |
 | `dataDir` | `~/.dsh/cache/dsh-token-panel` | 持久化用量日志目录 |
 
-> 默认价格对应 **deepseek-v4-flash** 当前官方价（缓存命中 ¥0.02 / 未命中 ¥1 / 输出 ¥2，每百万 token）。DeepSeek 自 2026-08-17 起改为峰谷定价（高峰 9-12、14-18 点），届时把 `priceMode` 改为 `peak-offpeak` 即可（峰谷价已按官网预填默认值）。其他模型 / 供应商请按自己的计价调整。
+> 默认内置 DeepSeek 官方价表（2026-08-17 前 flat 旧价 + 之后峰谷新价），其他模型 / 供应商请按自己的计价调整 `modelPrices`。
 
 ---
 
@@ -171,7 +179,7 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 └── state.json               # 上次用量基线（重启续接，防重复/防丢失）
 ```
 
-记录维度：未命中输入、输出、缓存读、缓存写（增量）。首次观察到会话时写入完整基线，之后记录增量——**累计从真实起点算起，重启不丢不重**。
+记录维度：未命中输入、输出、缓存读、缓存写、**模型**（增量）。首次观察到会话时写入完整基线，之后记录增量——**累计从真实起点算起，重启不丢不重**。
 
 ---
 

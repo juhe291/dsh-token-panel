@@ -17,14 +17,7 @@
   <img src="assets/hero.png" alt="dsh-token-panel cover" width="100%">
 </p>
 
-> ℹ️ **Cover note**: the banner above is a rendered **illustration** (not an actual screenshot), for promotional display only. Real UI: see the screenshot below.
-
-<p align="center">
-  <img src="assets/screenshot.png" alt="dsh-token-panel live view" width="49%">
-  <img src="assets/screenshot-stats.png" alt="dsh-token-panel stats view" width="49%">
-</p>
-
-> 📷 Left: live view (peak rate + session cost). Right: stats view (cumulative + editable budget/balance + daily/monthly breakdown).
+> 📷 The two panels in the cover are **real UI screenshots** (left: live view; right: stats view).
 
 ---
 
@@ -74,16 +67,17 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 
 ### Live view
 
-- Session rows: **bold number = current context pressure** (k scale); grey `≈` = cumulative usage (M scale, incl. cache reads); **green `¥` = that session's estimated cost**
+- Session rows: **bold number = current context pressure** (k scale); grey `≈` = cumulative usage (M scale, incl. cache reads); **green `¥` = that session's estimated cost** (priced by the model the session actually used)
 - Click a row for details (input / output / cache read / cache write, pressure / projected / capacity, cost, context-usage bar) and its consumption curve
-- Curves: **auto-scaling Y axis** (1/2/2.5/5×10ⁿ rounding with hysteresis, zero when idle) + gridlines + a dashed leader with a live value pill at the latest point + time ticks on X
-- 2m / 5m / 15m window switching
+- Curves: **auto-scaling Y axis** (1/2/2.5/5×10ⁿ rounding with hysteresis, zero when idle, unit label always visible) + gridlines + a dashed leader with a floating value pill at the latest point + time ticks on X
+- Peak consumption rate (t/s) above the curve; 2m / 5m / 15m window switching
 - The panel follows the conversation you are viewing; "Show all" reveals historic sessions (survive restarts)
 
 ### Stats view
 
-- **Daily / Monthly** tabs: every day/month with bars, token counts and estimated cost, plus trend curves
-- Cumulative total + ≈¥ cost; a monthly budget bar when `budgetMonthly` is set (turns red over budget); auto-fetched DeepSeek account balance
+- **Cumulative consumption** headline in one line (total tokens + ≈¥ cost)
+- **Editable budget / balance**: click a value to edit inline (Enter to save / Esc to cancel); the balance decreases locally with token consumption (persists across reloads), falling back to the API-fetched official balance when unset
+- **Daily / Monthly** switch: trend curve + detail list (collapsed by default, "Expand all" to see everything)
 - Usage is persisted per day (JSONL) and survives restarts
 
 ---
@@ -98,7 +92,8 @@ A compact pill in the bottom-right corner shows the total token pressure in real
 |---|---|
 | Session list | One row per session: **title + current context pressure + cumulative usage + session cost**; titles come from the DSH session-title service |
 | Session details | Click a row: input / output / cache-read / cache-write, pressure / projected / capacity, estimated cost, context-usage progress bar (turns red above 85%) |
-| Live curves | Per-session SVG area chart with auto-scaling Y axis (1/2/2.5/5×10ⁿ rounding + hysteresis, zero when idle), gridlines, dashed leader with live value pill, and **2m / 5m / 15m** range switching |
+| Live curves | Per-session SVG area chart with auto-scaling Y axis (1/2/2.5/5×10ⁿ rounding + hysteresis, zero when idle, unit label always visible), gridlines, dashed leader with floating value pill, and **2m / 5m / 15m** range switching |
+| Peak rate | Peak consumption rate (t/s) shown above the curve |
 | Follows current session | Only the open conversation is shown by default; historic sessions collapse behind "Show all" (survive restarts) |
 | Empty-session filter | Fresh conversations with 0 tokens are hidden entirely |
 | TPS | Generation speed (t/s) shown on the pill and the footer |
@@ -107,17 +102,19 @@ A compact pill in the bottom-right corner shows the total token pressure in real
 
 | Feature | Description |
 |---|---|
-| Daily / Monthly | Independent tabs listing every day / month with bars, token counts and estimated cost |
+| Daily / Monthly | Independent switch: trend curve + detail list (collapsed by default, "Expand all" to see every day / month) |
 | Trend curves | SVG curves over days / months with M/D date ticks and Y-axis labels |
-| Cumulative total | Total tokens consumed plus the ≈¥ estimated cost |
-| Budget & balance | Monthly budget bar when `budgetMonthly` is set (red over budget); auto-fetched DeepSeek account balance |
+| Cumulative total | One-line headline: total tokens consumed plus the ≈¥ estimated cost |
+| Budget & balance | **Click values to edit inline** (Enter saves / Esc cancels); budget shows used-this-month / total with a progress bar (red over budget); balance decreases locally with token consumption, falling back to the API-fetched official balance when unset |
 | Durable | Usage is written to per-day JSONL logs on disk — **survives restarts** |
 
 > ⚠️ **Number scale note**: the stats view's "Daily / Monthly" figures are **cumulative historical consumption** (input + output + **cache reads** summed); cache reads usually dominate, so a single day can reach hundreds of millions of tokens (displayed with the M suffix). The live view, by contrast, shows **current context pressure** (tokens in context right now, typically tens of thousands — k suffix). **These are two different quantities**; seeing "live 400k / stats 100M" is expected, not a bug. The `≈` number on a session row is that session's cumulative consumption, and the `¥` figure is its estimated cost — both matching the stats-view scale.
 
 ### 💰 Cost Estimation
 
-Priced with the **official DeepSeek rates** (CNY per 1M tokens), billing cache hits, uncached input and output separately. Display-only — the provider dashboard is authoritative. Peak/off-peak pricing supported (see Configuration).
+- **Per-model pricing**: built-in tables for `deepseek-v4-flash` and `deepseek-v4-pro` (cache hit / uncached input / output billed separately); sessions and stats are priced by the model each session actually used, so a session that switched models is never billed entirely at one rate
+- **auto price mode** (default): uses the flat legacy rates until 2026-08-17 00:00 Beijing time, then automatically switches to DeepSeek's official peak/off-peak schedule (peak 9-12 & 14-18); the footer badge shows "flat rate / peak rate / off-peak rate" accordingly — no config change needed
+- Display-only estimates — the provider dashboard is authoritative.
 
 ---
 
@@ -130,33 +127,44 @@ In your profile's `cordis.patch.yml` (or the plugin section of `settings.yaml`):
   name: dsh-token-panel
   config:
     pollInterval: 1500          # live poll interval (ms)
+    priceMode: auto             # auto = flat until 2026-08-17, then peak-offpeak automatically; flat / peak-offpeak to pin
+    # Global fallback prices (models not listed in modelPrices; defaults = flash rates)
     pricePerMInput: 1           # uncached input price (CNY / 1M tokens)
     pricePerMCacheRead: 0.02    # cache-hit price (CNY / 1M tokens)
     pricePerMOutput: 2          # output price (CNY / 1M tokens)
-    priceMode: flat             # flat = fixed prices; peak-offpeak = time-based
-    pricePeakInput: 3           # peak uncached input (peak-offpeak mode)
+    # Peak / off-peak fallback (when peak-offpeak is active)
+    pricePeakInput: 3           # peak uncached input
     pricePeakCacheRead: 0.1     # peak cache-hit
     pricePeakOutput: 9          # peak output
     priceOffpeakInput: 1.5      # off-peak uncached input
     priceOffpeakCacheRead: 0.05 # off-peak cache-hit
     priceOffpeakOutput: 4.5     # off-peak output
-    budgetMonthly: 0            # monthly budget (CNY); 0 disables the budget bar
+    # Per-model price tables (CNY / 1M tokens): sessions and stats bill by the model actually used
+    modelPrices:
+      deepseek-v4-flash:
+        flat:    { hit: 0.02,  miss: 1,   output: 2 }
+        peak:    { hit: 0.10,  miss: 3,   output: 9 }
+        offpeak: { hit: 0.05,  miss: 1.5, output: 4.5 }
+      deepseek-v4-pro:
+        flat:    { hit: 0.025, miss: 3,   output: 6 }
+        peak:    { hit: 0.30,  miss: 9,   output: 27 }
+        offpeak: { hit: 0.15,  miss: 4.5, output: 13.5 }
+    budgetMonthly: 0            # monthly budget (CNY); 0 disables (or click the value in the stats view to set it)
     # dataDir: ~/.dsh/cache/dsh-token-panel   # durable log directory (optional)
 ```
 
 | Key | Default | Description |
 |---|---|---|
 | `pollInterval` | `1500` | Browser live-poll interval (ms) |
-| `pricePerMInput` | `1` | Estimated price per 1M uncached input tokens (CNY, display only) |
-| `pricePerMCacheRead` | `0.02` | Estimated price per 1M cache-hit tokens (CNY, display only) |
-| `pricePerMOutput` | `2` | Estimated price per 1M output tokens (CNY, display only) |
-| `priceMode` | `flat` | Pricing mode: `flat` uses the fixed prices above; `peak-offpeak` auto-switches by Beijing time (peak 9-12, 14-18) |
-| `pricePeak*` | `3 / 0.1 / 9` | Peak-period prices (`peak-offpeak` mode) |
-| `priceOffpeak*` | `1.5 / 0.05 / 4.5` | Off-peak prices (`peak-offpeak` mode) |
-| `budgetMonthly` | `0` | Monthly budget (CNY); >0 shows a budget bar in the stats view (red when over) |
+| `priceMode` | `auto` | Pricing mode: `auto` switches from flat to peak/off-peak automatically at 2026-08-17 00:00 Beijing time; `flat` / `peak-offpeak` pin a mode |
+| `pricePerM*` | `1 / 0.02 / 2` | Global fallback prices per 1M tokens (CNY, display only) |
+| `pricePeak*` | `3 / 0.1 / 9` | Peak-period fallback prices (Beijing 9-12, 14-18) |
+| `priceOffpeak*` | `1.5 / 0.05 / 4.5` | Off-peak fallback prices |
+| `modelPrices` | built-in flash + pro | Per-model price tables (flat / peak / off-peak tiers); override or add models |
+| `budgetMonthly` | `0` | Monthly budget (CNY); >0 shows a budget bar, or click the value in the stats view to set it directly |
 | `dataDir` | `~/.dsh/cache/dsh-token-panel` | Durable usage-log directory |
 
-> Defaults match **deepseek-v4-flash** official pricing (cache hit ¥0.02 / miss ¥1 / output ¥2 per 1M tokens). DeepSeek moves to peak/off-peak pricing on 2026-08-17 (peak 9-12, 14-18 CST) — set `priceMode: peak-offpeak` then; the peak/off-peak keys already ship with official defaults. Adjust freely for other models/providers.
+> Built-in defaults match the official DeepSeek tables (flat legacy rates before 2026-08-17, peak/off-peak after). Adjust `modelPrices` for other models/providers.
 
 ---
 
