@@ -4,6 +4,23 @@ This file records user-visible changes to dsh-token-panel. Format based on [Keep
 
 [中文版](CHANGELOG.md) ｜ **English**
 
+## [0.4.0] - 2026-08-15
+
+### Added
+
+- **Hover bubble on stats curves**: each plotted point on the daily / monthly curves has a small hit disc — hovering pops a bubble with that point's token value; the current day / month is skipped (its floating value pill already labels it)
+- **Steam-style follow tooltip (live)**: move the pointer anywhere over a live trend curve and a bubble snaps to the nearest sample and follows the pointer, showing the token value at that spot, with a faint vertical guide line
+
+### Changed
+
+- **Frosted glass surfaces**: the panel and the collapsed pill are now translucent frosted glass (pill most transparent, panel one step less), consistent across light / dark themes; dark mode uses black drop shadows, dimmed borders and subdued glows instead of light halos
+- Sparkline area fill dimmed in dark mode (32% → 13%) so the curve reads as ink, not neon
+
+### Fixed
+
+- **Invisible white bubble text**: the bubble value color now uses `label-secondary` (the previous `label-primary-foreground` is the white foreground meant for the blue pill and vanished on the light bubble)
+- **Dark mode bright edges / washed-out gray**: panel shadow switched from light tokens to black, borders dimmed, status-dot glow toned down, panel surface darkened
+
 ## [0.3.0] - 2026-08-14
 
 ### Added
