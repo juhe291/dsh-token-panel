@@ -531,6 +531,14 @@
   font-family: var(--token-panel-mono);
 }
 
+/* Per-point value label on daily/monthly stat curves. */
+.sparkPointLabel {
+  fill: var(--dsw-alias-label-tertiary);
+  font-size: 9px;
+  font-weight: 600;
+  font-family: var(--token-panel-mono);
+}
+
 .sparkEmpty {
   display: flex;
   align-items: center;

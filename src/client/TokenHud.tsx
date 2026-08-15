@@ -539,12 +539,14 @@ function niceCeil(value: number): number {
   return nice * magnitude
 }
 
-function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatTime, t }: {
+function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatTime, pointLabels = false, t }: {
   readonly points: readonly HistoryPoint[]
   readonly now: number
   readonly width?: number
   readonly height?: number
   readonly tickFormat?: (t: number) => string
+  /** Show a compact value label above every plotted point (daily/monthly stats). */
+  readonly pointLabels?: boolean
   readonly t: Translate
 }) {
   /** Left gutter reserved for the Y-axis value labels. */
@@ -583,6 +585,7 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
         yMid: axisMax / 2,
         yMin: 0,
         latest: only.total,
+        coords: [{ x: AXIS_W + plotW / 2, y: yTop + (yBot - yTop) / 2, value: only.total }],
       }
     }
     const rawMax = Math.max(...ordered.map((point) => point.total), 0)
@@ -624,6 +627,10 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
       yMin: min,
       // Newest value for the floating pill (ordered is ascending, so last).
       latest: ordered[ordered.length - 1]?.total ?? 0,
+      // All plotted points (x, y, value) for per-point value labels.
+      coords: coords.map(([xValue, yValue], index) => ({
+        x: xValue, y: yValue, value: ordered[index]?.total ?? 0,
+      })),
     }
   }, [points, width, height, now, plotW, TOP, BOT])
 
@@ -694,6 +701,19 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
           {formatAxisTick(label.value)}
         </text>
       ))}
+      {/* Per-point value labels (daily/monthly stats): compact text above
+          each point, flipped below when the point hugs the top edge. */}
+      {pointLabels && path.kind === 'line' && path.coords.map((point, index) => {
+        const text = formatAxisTick(point.value)
+        const labelY = point.y - 16 < 6 ? point.y + 16 : point.y - 8
+        return (
+          <text key={index} x={point.x} y={labelY}
+            textAnchor="middle"
+            className={css.sparkPointLabel}>
+            {text}
+          </text>
+        )
+      })}
       {/* Y-axis unit label: always present, even when the series is idle. */}
       <text x={AXIS_W - 5} y={2}
         textAnchor="end"
@@ -992,11 +1012,11 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
           <div className={css.statsSparkWrap}>
             {subView === 'months'
               ? (monthPoints.length >= 1 && (
-                <Sparkline points={monthPoints} now={Date.now()} height={80.5}
+                <Sparkline points={monthPoints} now={Date.now()} height={80.5} pointLabels
                   tickFormat={(value) => formatMonthTick(value, t)} t={t} />
               ))
               : (dayPoints.length >= 1 && (
-                <Sparkline points={dayPoints} now={Date.now()} height={80.5} tickFormat={formatDateTick} t={t} />
+                <Sparkline points={dayPoints} now={Date.now()} height={80.5} pointLabels tickFormat={formatDateTick} t={t} />
               ))}
           </div>
           {listCount > 0 && (
