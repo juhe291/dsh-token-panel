@@ -15,8 +15,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
+        # Version comes from package.json's "packageManager" field
+        # (pnpm@11.7.0), keeping CI identical to the local toolchain so
+        # lockfile settings (autoInstallPeers etc.) always match.
 
       - uses: actions/setup-node@v4
         with:
