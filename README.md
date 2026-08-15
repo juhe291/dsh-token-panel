@@ -67,6 +67,8 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 
 > ⚠️ **从 GitHub / 本地安装需要 Node ≥ 22.5**：源码安装会执行 `prepare` 构建（pnpm 11.7 由 `packageManager` 字段固定，依赖 `node:sqlite`），Node 20 会构建失败。推荐从 npm 安装——无需构建。
 
+> ⚠️ **`dsh` 命令找不到**：`dsh` 是 DSH 自带的 CLI。若提示"无法将 dsh 识别为命令"，先全局安装：`npm install -g @deepseek-ai/dsh`，然后重开一个终端再执行上面的命令。
+
 ---
 
 ## 使用说明

@@ -67,6 +67,8 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 
 > ⚠️ **Git / local installs need Node ≥ 22.5**: source installs run the `prepare` build (pnpm 11.7 is pinned via the `packageManager` field and uses `node:sqlite`), so Node 20 fails to build. Prefer the npm install — no build required.
 
+> ⚠️ **`dsh` not recognized**: `dsh` is the DSH CLI. If your shell says the command is not found, install it globally first (`npm install -g @deepseek-ai/dsh`), then open a new terminal and re-run the commands above.
+
 ---
 
 ## Usage
