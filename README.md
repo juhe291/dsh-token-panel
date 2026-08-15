@@ -49,6 +49,12 @@ npm 包直接使用打包好的 `lib/` 产物，**无需本机构建**。显式�
 dsh plugin --profile web remove dsh-token-panel
 ```
 
+> 💡 **一键卸载备用方案**：刚发布的插件（发布不足约 24 小时）可能被 DSH 的 supply-chain 年龄校验拦住 `dsh plugin remove`。此时用随包附带的一键卸载脚本（直接调 pnpm，绕开该校验，并同步清理 bundle 注册）：
+> ```sh
+> node ~/.dsh/profiles/web/node_modules/dsh-token-panel/scripts/uninstall.mjs
+> ```
+> 脚本执行完**重启 profile** 生效。约 24 小时后（包龄超过策略门槛）`dsh plugin remove` 恢复正常。
+
 ### 从 GitHub 安装
 
 ```sh
