@@ -572,6 +572,8 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
   const yMaxRef = useRef<number>(1)
   /** Index of the plotted point currently hovered (hover bubble). */
   const [hovered, setHovered] = useState<number | null>(null)
+  /** The svg element, for mapping pointer coords back into viewBox space. */
+  const svgRef = useRef<SVGSVGElement | null>(null)
 
   const path = useMemo(() => {
     if (points.length === 0) return null
@@ -660,7 +662,7 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
   ]
 
   return (
-    <svg className={css.spark} viewBox={`0 0 ${width} ${height}`} width="100%" height={height}
+    <svg ref={svgRef} className={css.spark} viewBox={`0 0 ${width} ${height}`} width="100%" height={height}
       preserveAspectRatio="none" role="img" aria-label={t('token')}>
       <defs>
         <linearGradient id="tokenSparkFill" x1="0" y1="0" x2="0" y2="1">
@@ -716,16 +718,37 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
           {formatAxisTick(label.value)}
         </text>
       ))}
-      {/* Hover interaction (daily/monthly stats): a transparent hit disc over
-          every plotted point pops a bubble with the point's value. The bubble
-          group is pointer-events:none so it never steals the pointer and the
-          disc stays hovered — no flicker. */}
-      {hover && path.coords.map((point, index) => (
-        <circle key={`hit-${index}`} cx={point.x} cy={point.y} r={7} fill="transparent"
-          pointerEvents="all"
-          onPointerEnter={() => { setHovered(index) }}
-          onPointerLeave={() => { setHovered((current) => (current === index ? null : current)) }} />
-      ))}
+      {/* Hover interaction (daily/monthly stats): a thick invisible hit band
+          along the whole curve — hovering anywhere near the line snaps to the
+          nearest plotted point and pops a bubble with that point's value. The
+          bubble group is pointer-events:none so it never steals the pointer
+          and the hit band stays hovered — no flicker. */}
+      {hover && path.kind === 'line' && (
+        <path d={path.line} fill="none" stroke="transparent" strokeWidth={14}
+          strokeLinecap="round" strokeLinejoin="round" pointerEvents="all"
+          onPointerMove={(event) => {
+            const svgEl = svgRef.current
+            if (svgEl === null || path.coords.length === 0) return
+            const rect = svgEl.getBoundingClientRect()
+            if (rect.width <= 0) return
+            // The svg stretches horizontally (preserveAspectRatio="none"),
+            // so map the pointer back with the rendered-to-viewBox scale.
+            const x = (event.clientX - rect.left) * (width / rect.width)
+            let nearest = 0
+            let best = Infinity
+            for (let index = 0; index < path.coords.length; index++) {
+              const distance = Math.abs(path.coords[index]!.x - x)
+              if (distance < best) { best = distance; nearest = index }
+            }
+            setHovered(nearest)
+          }}
+          onPointerLeave={() => { setHovered(null) }} />
+      )}
+      {hover && path.kind === 'dot' && (
+        <circle cx={path.x} cy={path.y} r={8} fill="transparent" pointerEvents="all"
+          onPointerEnter={() => { setHovered(0) }}
+          onPointerLeave={() => { setHovered(null) }} />
+      )}
       {hover && hovered !== null && path.coords[hovered] !== undefined && (() => {
         const point = path.coords[hovered]!
         const valueText = formatAxisTick(point.value)
