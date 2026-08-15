@@ -4,18 +4,16 @@ This file records user-visible changes to dsh-token-panel. Format based on [Keep
 
 [中文版](CHANGELOG.md) ｜ **English**
 
-## [Unreleased]
-
-### Fixed
-
-- **Broken `¥0.1分` display for sub-cent costs**: amounts below ¥0.01 now render as `¥0.001` in both languages instead of mixing the ¥ symbol with the fen unit
-- **Large-amount readability**: costs ≥ ¥1 now show thousands separators (e.g. `¥12,345.67`) while keeping cent precision; `¥0` renders as `¥0.00`
-
 ## [0.4.1] - 2026-08-15
 
 ### Changed
 
 - Publishing now uses **Trusted Publisher (OpenID Connect)**: triggered from `v*` tags, publishes with **provenance signatures**, no local token needed
+
+### Fixed
+
+- **Broken `¥0.1分` display for sub-cent costs**: amounts below ¥0.01 now render as `¥0.001` in both languages instead of mixing the ¥ symbol with the fen unit
+- **Large-amount readability**: costs ≥ ¥1 now show thousands separators (e.g. `¥12,345.67`) while keeping cent precision; `¥0` renders as `¥0.00`
 
 ## [0.4.0] - 2026-08-15
 
