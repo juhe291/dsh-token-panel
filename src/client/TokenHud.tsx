@@ -615,9 +615,15 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
     const area = `${line} L${width},${BOT} L${AXIS_W},${BOT} Z`
     const last = coords[coords.length - 1]
     if (last === undefined) return null
-    const ticks = [0, 0.5, 1].map((fraction) => {
-      const t = t0 + tSpan * fraction
-      return { t, x: x(t) }
+    // X-axis ticks: with few points (daily/monthly), label each data point
+    // itself so no two ticks collapse onto the same date (a 50% midpoint
+    // between two day-noons lands on the next midnight and duplicates it).
+    const tickCount = ordered.length <= 3 ? ordered.length : 3
+    const tickIndexes = Array.from({ length: tickCount }, (_, i) =>
+      Math.round(((ordered.length - 1) * i) / (tickCount - 1)))
+    const ticks = tickIndexes.map((index) => {
+      const point = ordered[Math.max(0, Math.min(ordered.length - 1, index))]!
+      return { t: point.t, x: x(point.t) }
     })
     return {
       kind: 'line' as const, line, area, last, ticks,
