@@ -394,11 +394,9 @@ function dateLabel(date: string, t: Translate): string {
   return `${Number(m)}/${Number(d)}`
 }
 
-/** Locale-aware month label for a YYYY-MM key. */
+/** Locale-aware month label for a YYYY-MM key (e.g. 2026/8). */
 function monthLabel(month: string, t: Translate): string {
   const [y, m] = month.split('-')
-  const now = new Date()
-  if (Number(y) === now.getFullYear() && Number(m) === now.getMonth() + 1) return t('thisMonth')
   return fill(t('monthFmt'), { y: Number(y), m: Number(m) })
 }
 
