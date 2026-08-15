@@ -694,18 +694,21 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
           </>
         )
       })()}
-      {yLabels.map((label) => (
+      {!pointLabels && yLabels.map((label) => (
         <text key={label.y} x={AXIS_W - 5} y={label.y + 3}
           textAnchor="end"
           className={css.sparkYTick}>
           {formatAxisTick(label.value)}
         </text>
       ))}
-      {/* Per-point value labels (daily/monthly stats): compact text above
-          each point, flipped below when the point hugs the top edge. */}
+      {/* Per-point value labels (daily/monthly stats): each label sits on the
+          side away from the chart midline — points in the top half label
+          below, bottom half label above — so adjacent labels never overlap
+          and never collide with the (hidden) Y-axis scale. */}
       {pointLabels && path.kind === 'line' && path.coords.map((point, index) => {
         const text = formatAxisTick(point.value)
-        const labelY = point.y - 16 < 6 ? point.y + 16 : point.y - 8
+        const midY = (TOP + BOT) / 2
+        const labelY = point.y < midY ? point.y + 12 : point.y - 8
         return (
           <text key={index} x={point.x} y={labelY}
             textAnchor="middle"
