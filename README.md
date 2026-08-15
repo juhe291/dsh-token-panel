@@ -3,7 +3,7 @@
 # dsh-token-panel
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.6-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
+[![Version](https://img.shields.io/badge/version-0.4.7-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
 [![Platform](https://img.shields.io/badge/platform-web-cyan?style=flat-square)](https://github.com/juhe291/dsh-token-panel)
 [![Topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-8A2BE2?style=flat-square)](https://github.com/topics/dsh-plugin)
 
@@ -38,7 +38,7 @@
 ### 从 npm 安装（推荐）
 
 ```sh
-dsh plugin --profile web add dsh-token-panel@0.4.6
+dsh plugin --profile web add dsh-token-panel@0.4.7
 ```
 
 npm 包直接使用打包好的 `lib/` 产物，**无需本机构建**。命令里的版本号请写**当前最新版**（发布新版本后同步更新此处，见 [发布新版本](#发布新版本)）。
