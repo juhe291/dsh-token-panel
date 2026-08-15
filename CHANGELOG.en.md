@@ -4,6 +4,12 @@ This file records user-visible changes to dsh-token-panel. Format based on [Keep
 
 [中文版](CHANGELOG.md) ｜ **English**
 
+## [0.4.4] - 2026-08-15
+
+### Fixed
+
+- **Tool-call crash** (`Cannot read properties of undefined (reading 'prepare')`): DSH-internal packages (`@deepseek-ai/*`, `cordis`, `schemastery`, `react`, …) moved from `dependencies` to `peerDependencies`, so pnpm no longer installs a second copy of DSH internals — the duplicate copy broke the `TOOL_RUNTIME_SCHEDULER` Symbol identity and crashed every tool call in the host agent loop
+
 ## [0.4.3] - 2026-08-15
 
 ### Added

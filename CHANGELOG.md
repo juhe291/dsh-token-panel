@@ -4,6 +4,12 @@
 
 **中文** ｜ [English](CHANGELOG.en.md)
 
+## [0.4.4] - 2026-08-15
+
+### 修复
+
+- **工具调用崩溃**（`Cannot read properties of undefined (reading 'prepare')`）：将 `@deepseek-ai/*`、`cordis`、`schemastery`、`react` 等从 `dependencies` 移入 `peerDependencies`，插件不再让 pnpm 安装第二份 DSH 内部代码——此前两份拷贝导致 `TOOL_RUNTIME_SCHEDULER`（Symbol）身份不一致，宿主每次工具调用都会报错
+
 ## [0.4.3] - 2026-08-15
 
 ### 新增

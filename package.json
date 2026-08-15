@@ -1,6 +1,6 @@
 {
   "name": "dsh-token-panel",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "packageManager": "pnpm@11.7.0",
   "description": "Real-time token consumption HUD for DeepSeek Harness: a sleek tech-style panel showing live token usage, context pressure and cost estimates across sessions",
   "repository": {
@@ -49,7 +49,26 @@
   "engines": {
     "node": ">=18"
   },
-  "dependencies": {
+  "dependencies": {},
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.0-rc.7",
+    "@deepseek-ai/dsh-agent": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-locale": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-session": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-session-projection": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-session-title": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-token-meter": "^0.1.0-rc.6",
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true },
+    "react-dom": { "optional": true }
+  },
+  "devDependencies": {
     "@deepseek-ai/cordis": "4.0.1",
     "@deepseek-ai/dsh-agent": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-locale": "0.1.0-rc.6",
@@ -60,14 +79,12 @@
     "@deepseek-ai/dsh-session-title": "0.1.0-rc.6",
     "@deepseek-ai/dsh-token-meter": "0.1.0-rc.6",
     "@deepseek-ai/schemastery": "3.18.1",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
-  },
-  "devDependencies": {
     "@types/node": "^24.13.3",
     "@types/react": "~18.3.31",
-    "@types/react-dom": "^19.2.4",
+    "@types/react-dom": "~18.3.1",
     "lightningcss": "^1.33.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "tsdown": "0.22.2",
     "typescript": "^5.9.3"
   }
