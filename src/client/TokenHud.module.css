@@ -212,8 +212,9 @@
   box-sizing: border-box;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 92%, transparent);
-  backdrop-filter: blur(14px);
+  /* Frosted glass, same family as the panel. */
+  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 84%, transparent);
+  backdrop-filter: blur(16px) saturate(1.15);
   box-shadow: 0 8px 28px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent);
   color: var(--dsw-alias-label-secondary);
   font: inherit;
@@ -292,8 +293,9 @@
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l3) 58%, transparent);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 95%, transparent);
-  backdrop-filter: blur(18px) saturate(1.08);
+  /* Frosted glass: translucent surface lets the page blur through. */
+  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 84%, transparent);
+  backdrop-filter: blur(20px) saturate(1.18);
   box-shadow:
     0 12px 32px color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent),
     0 32px 72px color-mix(in srgb, var(--dsw-alias-label-primary) 16%, transparent);
@@ -1052,24 +1054,26 @@
    glows, and a quieter sparkline fill. */
 :global(body[data-ds-dark-theme]) .panel {
   border-color: color-mix(in srgb, var(--dsw-alias-border-l3) 32%, transparent);
-  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 58%, var(--dsw-static-neutral-bluish-1000));
-  backdrop-filter: blur(18px);
+  /* Dark frosted glass: translucent near-black surface + blur. */
+  background: color-mix(in srgb, var(--dsw-static-neutral-bluish-1000) 70%, transparent);
+  backdrop-filter: blur(20px) saturate(1.12);
   box-shadow:
     0 12px 32px rgba(0, 0, 0, 0.45),
     0 32px 72px rgba(0, 0, 0, 0.55);
 }
 
 :global(body[data-ds-dark-theme]) .chip {
-  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 58%, var(--dsw-static-neutral-bluish-1000));
+  background: color-mix(in srgb, var(--dsw-static-neutral-bluish-1000) 70%, transparent);
+  backdrop-filter: blur(16px) saturate(1.1);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
 
-/* Floating hint bubbles / menus / toasts: darker glass, black shadow. */
+/* Floating hint bubbles / menus / toasts: dark glass, black shadow. */
 :global(body[data-ds-dark-theme]) [data-hud-handle]::after,
 :global(body[data-ds-dark-theme]) .rowHint,
 :global(body[data-ds-dark-theme]) .pressMenu,
 :global(body[data-ds-dark-theme]) .toast {
-  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 66%, var(--dsw-static-neutral-bluish-1000));
+  background: color-mix(in srgb, var(--dsw-static-neutral-bluish-1000) 74%, transparent);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
 }
 
