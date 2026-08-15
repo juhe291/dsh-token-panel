@@ -1042,3 +1042,61 @@
   font-size: 9px;
   font-variant-numeric: tabular-nums;
 }
+
+/* ────────────────────────────────────────────────────
+   Dark-theme rebalance. The host flips label-primary and
+   border tokens to light values in dark mode, which turns
+   the HUD's shadows/borders into bright halos and makes
+   the surface read as washed-out gray. Keep it a solid
+   dark panel: black drop shadows, dimmer borders, subdued
+   glows, and a quieter sparkline fill. */
+:global(body[data-ds-dark-theme]) .panel {
+  border-color: color-mix(in srgb, var(--dsw-alias-border-l3) 32%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 96%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.45),
+    0 32px 72px rgba(0, 0, 0, 0.55);
+}
+
+:global(body[data-ds-dark-theme]) .chip {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+/* Floating hint bubbles / menus / toasts: black shadow, no light halo. */
+:global(body[data-ds-dark-theme]) [data-hud-handle]::after,
+:global(body[data-ds-dark-theme]) .rowHint,
+:global(body[data-ds-dark-theme]) .pressMenu,
+:global(body[data-ds-dark-theme]) .toast {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+/* Status dots: keep a faint glow, cut the bright bloom. */
+:global(body[data-ds-dark-theme]) .chipDot,
+:global(body[data-ds-dark-theme]) .titleMark {
+  box-shadow: 0 0 6px color-mix(in srgb, var(--dsw-alias-state-business-primary) 45%, transparent);
+}
+
+:global(body[data-ds-dark-theme]) .peakDot,
+:global(body[data-ds-dark-theme]) .rowPulse[data-live='true'] {
+  box-shadow: 0 0 4px color-mix(in srgb, var(--dsw-alias-state-business-primary) 40%, transparent);
+}
+
+/* Budget bar: softer glow. */
+:global(body[data-ds-dark-theme]) .budgetFill {
+  box-shadow: 0 0 4px color-mix(in srgb, var(--dsw-alias-state-success-primary) 26%, transparent);
+}
+
+:global(body[data-ds-dark-theme]) .budgetFill[data-over='true'] {
+  box-shadow: 0 0 4px color-mix(in srgb, var(--dsw-alias-state-error-primary) 26%, transparent);
+}
+
+/* Sparkline area fill: dim the blue sheet so the curve
+   reads as ink on the panel, not a neon glow. */
+:global(body[data-ds-dark-theme]) .spark stop:first-child {
+  stop-opacity: 0.13;
+}
+
+:global(body[data-ds-dark-theme]) .spark stop:last-child {
+  stop-opacity: 0.01;
+}
