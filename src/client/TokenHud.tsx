@@ -487,10 +487,13 @@ function estimateStatCost(
 }
 
 /** Format a CNY cost for display. Sub-cent amounts show trimmed ¥ decimals
- *  (e.g. ¥0.001) so they never read as a broken "¥0.1分". */
+ *  (e.g. ¥0.001); ¥1+ keeps cent precision with thousands separators. */
 function formatCost(cost: number, t: Translate): string {
   if (cost <= 0) return '¥0.00'
-  if (cost >= 1) return `¥${cost.toFixed(2)}`
+  if (cost >= 1) {
+    const [int, dec] = cost.toFixed(2).split('.')
+    return `¥${int.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${dec ?? '00'}`
+  }
   if (cost >= 0.01) return `¥${cost.toFixed(3)}`
   return fill(t('costTiny'), { yuan: String(parseFloat(cost.toFixed(4))) })
 }
