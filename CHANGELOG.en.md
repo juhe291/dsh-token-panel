@@ -6,6 +6,10 @@ This file records user-visible changes to dsh-token-panel. Format based on [Keep
 
 ## [Unreleased]
 
+### Fixed
+
+- **Misleading live footer "TOTAL · OUT"**: TOTAL showed current context pressure (k scale) next to cumulative output (M scale), so OUT > TOTAL looked like a bug; it now shows the **cumulative total** (same definition as the stats view's cumulative), so TOTAL ≥ OUT always, relabeled "Cumulative · Output"
+
 ### Added
 
 - **One-command uninstall script**: the package ships `scripts/uninstall.mjs` — a freshly published plugin (under the ~24h supply-chain minimum release age) can make `dsh plugin remove` fail its lockfile verification; this script calls pnpm directly (bypassing that check) and removes the `dsh.profile.bundles` entry, uninstalling in one command

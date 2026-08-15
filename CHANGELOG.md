@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### 修复
+
+- **实时底部 "TOTAL · OUT" 数字误导**：TOTAL 原显示的是当前上下文压力（k 量级），与累计输出（M 量级）并排会让 OUT > TOTAL、看起来像 bug；现改为显示**累计总量**（与统计视图"累计消耗"口径一致），TOTAL ≥ OUT 恒成立，文案改为「累计 · 输出」
+
 ### 新增
 
 - **一键卸载脚本**：随包附带 `scripts/uninstall.mjs`——刚发布的插件（不足约 24 小时）会被 DSH supply-chain 年龄校验拦住 `dsh plugin remove`，此脚本直接调用 pnpm 绕开该校验，并同步清理 `dsh.profile.bundles` 注册，一条命令完成卸载

@@ -2077,7 +2077,7 @@ export function TokenHud({ t, sessionsList }: {
                 {error !== null
                   ? fill(t('disconnected'), { error })
                   : view === 'live'
-                    ? fill(t('pollLive'), { total: formatNumber(totals.total), out: formatNumber(totals.output) })
+                    ? fill(t('pollLive'), { total: formatNumber(totals.cumulative), out: formatNumber(totals.output) })
                     : t('pollStats')}
               </span>
               <span className={css.footSecond}>
