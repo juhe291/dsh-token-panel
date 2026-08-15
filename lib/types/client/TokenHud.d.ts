@@ -257,6 +257,10 @@ export interface TokenHudLocale {
     readonly costTiny: string;
     /** aria-label for the time scrubber under curves. */
     readonly scrubLabel: string;
+    /** Long-press menu item that hides the whole HUD. */
+    readonly hideHud: string;
+    /** Tooltip on the hide item: how to restore. */
+    readonly hideHudRestore: string;
 }
 type Translate = (key: keyof TokenHudLocale) => string;
 /** The top-level HUD: polling, view switching and layout. */

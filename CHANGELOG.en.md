@@ -4,6 +4,13 @@ This file records user-visible changes to dsh-token-panel. Format based on [Keep
 
 [中文版](CHANGELOG.md) ｜ **English**
 
+## [0.4.6] - 2026-08-15
+
+### Added
+
+- **"Hide HUD" in the long-press menu**: the position menu (long-press the pill or panel header) gains a "Hide HUD" item — click it and the whole panel (pill included) disappears immediately and stays hidden; restore by turning the `hidden` switch off in DSH settings (or setting it back to `false`)
+- **DSH settings toggle**: a visual "hidden" switch on the settings page (Plugins → token-panel), no config file editing needed
+
 ## [0.4.5] - 2026-08-15
 
 ### Added

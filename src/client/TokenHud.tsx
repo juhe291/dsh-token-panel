@@ -197,9 +197,11 @@ function MenuIcon({ d }: { readonly d: string }) {
   )
 }
 
-/** Icon paths: back-arrow, crosshair (custom), corner brackets (presets). */
+/** Icon paths: back-arrow, crosshair (custom), corner brackets (presets),
+ *  eye-off (hide HUD). */
 const ICON_BACK = 'M3 8h8M8.5 4.5 12 8l-3.5 3.5M13 3v10'
 const ICON_CROSSHAIR = 'M8 1.5v3m0 7v3M1.5 8h3m7 0h3M8 8l.01 0M8 5.8A2.2 2.2 0 1 0 8 10.2 2.2 2.2 0 0 0 8 5.8Z'
+const ICON_EYE_OFF = 'M1.5 8s2.4-3.7 6.5-3.7S14.5 8 14.5 8s-2.4 3.7-6.5 3.7S1.5 8 1.5 8ZM3.5 3.5l9 9'
 const ICON_CORNER: Record<'tl' | 'tr' | 'bl' | 'br', string> = {
   // Pure L-brackets (no stray diagonals): the bracket points INTO the corner.
   tl: 'M1.5 6V1.5H6',
@@ -331,6 +333,10 @@ export interface TokenHudLocale {
   readonly costTiny: string
   /** aria-label for the time scrubber under curves. */
   readonly scrubLabel: string
+  /** Long-press menu item that hides the whole HUD. */
+  readonly hideHud: string
+  /** Tooltip on the hide item: how to restore. */
+  readonly hideHudRestore: string
 }
 
 type Translate = (key: keyof TokenHudLocale) => string
@@ -1249,6 +1255,21 @@ export function TokenHud({ t, sessionsList }: {
       return null
     }
   })
+  /** User hid the HUD from the long-press menu (persists across reloads). */
+  const [userHidden, setUserHidden] = useState<boolean>(() => {
+    try { return window.localStorage.getItem('dsh-token-panel-hidden') === '1' } catch { return false }
+  })
+  /** Host-config hidden transitions true→false mean the user re-enabled the
+   *  HUD from DSH settings — clear any menu-based hide so it reappears. */
+  const prevHiddenRef = useRef<boolean | null>(null)
+  useEffect(() => {
+    const current = snapshot?.hidden === true
+    if (prevHiddenRef.current === true && !current) {
+      try { window.localStorage.removeItem('dsh-token-panel-hidden') } catch { /* ignore */ }
+      setUserHidden(false)
+    }
+    prevHiddenRef.current = current
+  }, [snapshot])
   /** Which editable value is being edited: 'budget' | 'balance' | null. */
   const [editing, setEditing] = useState<'budget' | 'balance' | null>(null)
   const [editDraft, setEditDraft] = useState('')
@@ -1782,8 +1803,9 @@ export function TokenHud({ t, sessionsList }: {
     ? { right: 'auto', bottom: 'auto', left: position.x, top: position.y }
     : {}
 
-  if (snapshot?.hidden === true) {
-    // Host config `hidden: true`: render nothing — no pill, no panel.
+  if (snapshot?.hidden === true || userHidden) {
+    // Host config `hidden` or the long-press "Hide HUD" action: render
+    // nothing — no pill, no panel.
     return null
   }
 
@@ -1859,6 +1881,22 @@ export function TokenHud({ t, sessionsList }: {
               </button>
             </div>
           )}
+          <button
+            type="button"
+            className={css.pressMenuItem}
+            title={t('hideHudRestore')}
+            onClick={() => {
+              try { window.localStorage.setItem('dsh-token-panel-hidden', '1') } catch { /* ignore */ }
+              setUserHidden(true)
+              setPressMenu(false)
+              setPressSubMenu(false)
+            }}
+          >
+            <span className={css.pressMenuLabel}>
+              <MenuIcon d={ICON_EYE_OFF} />
+              {t('hideHud')}
+            </span>
+          </button>
           <button
             type="button"
             className={css.pressMenuItem}

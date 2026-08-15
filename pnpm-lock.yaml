@@ -32,6 +32,9 @@ importers:
       '@deepseek-ai/dsh-session-title':
         specifier: 0.1.0-rc.6
         version: 0.1.0-rc.6(d1255cd1c1cc892be642dda517b65e3c)
+      '@deepseek-ai/dsh-settings':
+        specifier: 0.1.0-rc.6
+        version: 0.1.0-rc.6(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-brand@0.1.0-rc.6(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@0.1.0-rc.6(@deepseek-ai/cordis@4.0.1)))(@deepseek-ai/dsh-invariants@0.1.0-rc.6(@deepseek-ai/cordis@4.0.1))(@deepseek-ai/schemastery@3.18.1)
       '@deepseek-ai/dsh-token-meter':
         specifier: 0.1.0-rc.6
         version: 0.1.0-rc.6(50a09c61b97e6ab96816ffb04cbb9bd3)

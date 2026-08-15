@@ -1,6 +1,6 @@
 {
   "name": "dsh-token-panel",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "packageManager": "pnpm@11.7.0",
   "description": "Real-time token consumption HUD for DeepSeek Harness: a sleek tech-style panel showing live token usage, context pressure and cost estimates across sessions",
   "repository": {
@@ -59,6 +59,7 @@
     "@deepseek-ai/dsh-session": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-session-projection": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-session-title": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-settings": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-token-meter": "^0.1.0-rc.6",
     "@deepseek-ai/schemastery": "^3.18.1",
     "react": "^18.3.1",
@@ -77,6 +78,7 @@
     "@deepseek-ai/dsh-session": "0.1.0-rc.6",
     "@deepseek-ai/dsh-session-projection": "0.1.0-rc.6",
     "@deepseek-ai/dsh-session-title": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-settings": "0.1.0-rc.6",
     "@deepseek-ai/dsh-token-meter": "0.1.0-rc.6",
     "@deepseek-ai/schemastery": "3.18.1",
     "@types/node": "^24.13.3",

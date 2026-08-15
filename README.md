@@ -3,7 +3,7 @@
 # dsh-token-panel
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.5-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
+[![Version](https://img.shields.io/badge/version-0.4.6-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
 [![Platform](https://img.shields.io/badge/platform-web-cyan?style=flat-square)](https://github.com/juhe291/dsh-token-panel)
 [![Topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-8A2BE2?style=flat-square)](https://github.com/topics/dsh-plugin)
 
@@ -186,7 +186,7 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 | `priceOffpeak*` | `1.5 / 0.05 / 4.5` | 空闲时段兜底价格 |
 | `modelPrices` | 内置 flash + pro | 按模型价表（flat / peak / offpeak 三档），覆盖或新增模型 |
 | `budgetMonthly` | `0` | 月预算（CNY），>0 显示预算进度条；也可在统计视图点击数值直接设置 |
-| `hidden` | `false` | `true` 时隐藏整个面板（含右下角胶囊）；在 DSH 设置里改回 `false` 恢复 |
+| `hidden` | `false` | `true` 时隐藏整个面板（含右下角胶囊）；也可用长按菜单「隐藏 HUD」或 DSH 设置里的可视化开关，无需改配置 |
 | `dataDir` | `~/.dsh/cache/dsh-token-panel` | 持久化用量日志目录 |
 
 > 默认内置 DeepSeek 官方价表（2026-08-17 前 flat 旧价 + 之后峰谷新价），其他模型 / 供应商请按自己的计价调整 `modelPrices`。

@@ -111,6 +111,8 @@ export function apply(ctx: ClientContext): void {
     notSet: 'Not set',
     costTiny: '¥{yuan}',
     scrubLabel: 'Scrub through time',
+    hideHud: 'Hide HUD',
+    hideHudRestore: 'Hidden — restore from DSH settings',
   }
   const zh: TokenHudLocale = {
     token: 'TOKEN HUD',
@@ -198,6 +200,8 @@ export function apply(ctx: ClientContext): void {
     notSet: '未设置',
     costTiny: '¥{yuan}',
     scrubLabel: '拖动查看更早时间',
+    hideHud: '隐藏 HUD',
+    hideHudRestore: '已隐藏 — 可在 DSH 设置中恢复',
   }
 
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'token-panel: locale')
