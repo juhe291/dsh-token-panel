@@ -34,14 +34,18 @@ jobs:
       # repository secret, configure npm to use it. Without it, publishing
       # falls back to Trusted Publisher (OIDC) — npmjs verifies the GitHub
       # workflow identity configured on the package's settings page.
+      # (The secret is passed via env, not `if:` — secrets in `if`
+      # conditions are a known workflow-evaluation footgun.)
       - name: Configure npm auth
-        if: secrets.NPM_TOKEN != ''
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+          fi
 
       - name: Publish
         run: npm publish --provenance --access public
 
       - name: Cleanup npmrc
-        if: secrets.NPM_TOKEN != ''
         run: rm -f ~/.npmrc
