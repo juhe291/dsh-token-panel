@@ -717,9 +717,9 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
         </text>
       ))}
       {/* Hover interaction (daily/monthly stats): a transparent hit disc over
-          every plotted point pops a bubble with the point's value + date. The
-          bubble group is pointer-events:none so it never steals the pointer
-          and the disc stays hovered — no flicker. */}
+          every plotted point pops a bubble with the point's value. The bubble
+          group is pointer-events:none so it never steals the pointer and the
+          disc stays hovered — no flicker. */}
       {hover && path.coords.map((point, index) => (
         <circle key={`hit-${index}`} cx={point.x} cy={point.y} r={7} fill="transparent"
           pointerEvents="all"
@@ -728,10 +728,9 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
       ))}
       {hover && hovered !== null && path.coords[hovered] !== undefined && (() => {
         const point = path.coords[hovered]!
-        const dateText = tickFormat(point.t)
         const valueText = formatAxisTick(point.value)
-        const labelW = Math.max(34, Math.max(estimateTextW(dateText), estimateTextW(valueText)) + 16)
-        const BUBBLE_H = 24
+        const labelW = Math.max(30, estimateTextW(valueText) + 14)
+        const BUBBLE_H = 18
         // Bubble sits above the point; flips below when the point is near the
         // top edge. Clamped horizontally so it never clips the panel.
         const fitsAbove = point.y - BUBBLE_H - 9 >= 6
@@ -751,8 +750,7 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
             <rect x={bx - labelW / 2} y={by} width={labelW} height={BUBBLE_H} rx={6}
               fill="var(--dsw-alias-bg-module-platform)"
               stroke="var(--dsw-alias-border-l2)" strokeWidth="1" />
-            <text x={bx} y={by + 9.5} textAnchor="middle" className={css.sparkBubbleDate}>{dateText}</text>
-            <text x={bx} y={by + 19} textAnchor="middle" className={css.sparkBubbleValue}>{valueText}</text>
+            <text x={bx} y={by + 12.5} textAnchor="middle" className={css.sparkBubbleValue}>{valueText}</text>
           </g>
         )
       })()}
