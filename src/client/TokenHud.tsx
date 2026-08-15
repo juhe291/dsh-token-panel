@@ -325,6 +325,8 @@ export interface TokenHudLocale {
   readonly balanceInput: string
   /** Placeholder when budget/balance is not set yet. */
   readonly notSet: string
+  /** Tiny (< 1 cent) cost: '{fen}分' in zh, '¥{yuan}' in en. */
+  readonly costTiny: string
 }
 
 type Translate = (key: keyof TokenHudLocale) => string
@@ -484,11 +486,16 @@ function estimateStatCost(
   return total
 }
 
-/** Format a CNY cost for display. */
-function formatCost(cost: number): string {
+/** Format a CNY cost for display. Sub-cent amounts show in 分 (zh) or
+ *  trimmed ¥ decimals (en) so they never read as a broken "¥0.1分". */
+function formatCost(cost: number, t: Translate): string {
+  if (cost <= 0) return '¥0.00'
   if (cost >= 1) return `¥${cost.toFixed(2)}`
   if (cost >= 0.01) return `¥${cost.toFixed(3)}`
-  return `¥${(cost * 100).toFixed(1)}分`
+  return fill(t('costTiny'), {
+    fen: (cost * 100).toFixed(1),
+    yuan: String(parseFloat(cost.toFixed(4))),
+  })
 }
 
 /** Occupancy percent for the pressure bar (capacity may be absent). */
@@ -900,7 +907,7 @@ function SessionRow({ row, prices, modelPrices, rangeMs, now, t, onHint, onHintE
               className={css.rowCost}
               onPointerEnter={(event) => { onHint(t('costTitle'), event.currentTarget) }}
               onPointerLeave={onHintEnd}
-            >{formatCost(cost)}</span>
+            >{formatCost(cost, t)}</span>
           )}
         </span>
         <span className={css.rowPulse} data-live={row.live} aria-hidden />
@@ -918,7 +925,7 @@ function SessionRow({ row, prices, modelPrices, rangeMs, now, t, onHint, onHintE
             <span className={css.detailItem}><span className={css.detailLabel}>{t('pressure')}</span><span className={css.mono}>{row.pressureTokens === undefined ? '—' : formatNumber(row.pressureTokens)}</span></span>
             <span className={css.detailItem}><span className={css.detailLabel}>{t('projected')}</span><span className={css.mono}>{row.projectedTokens === undefined ? '—' : formatNumber(row.projectedTokens)}</span></span>
             <span className={css.detailItem}><span className={css.detailLabel}>{t('capacity')}</span><span className={css.mono}>{row.contextWindow === undefined ? '—' : formatNumber(row.contextWindow)}</span></span>
-            <span className={css.detailItem}><span className={css.detailLabel}>{t('cost')}</span><span className={css.mono}>{formatCost(cost)}</span></span>
+            <span className={css.detailItem}><span className={css.detailLabel}>{t('cost')}</span><span className={css.mono}>{formatCost(cost, t)}</span></span>
           </div>
           {used !== undefined && (
             <div className={css.barTrack} aria-label={fill(t('contextBar'), { pct: used.toFixed(0) })}>
@@ -932,7 +939,7 @@ function SessionRow({ row, prices, modelPrices, rangeMs, now, t, onHint, onHintE
 }
 
 /** One horizontal usage bar (day or month). */
-function StatBar({ label, value, max, input, output, cacheRead, cacheWrite, cost }: {
+function StatBar({ label, value, max, input, output, cacheRead, cacheWrite, cost, t }: {
   readonly label: string
   readonly value: number
   readonly max: number
@@ -941,6 +948,7 @@ function StatBar({ label, value, max, input, output, cacheRead, cacheWrite, cost
   readonly cacheRead: number
   readonly cacheWrite: number
   readonly cost: number
+  readonly t: Translate
 }) {
   const width = max > 0 ? Math.max(2, (value / max) * 100) : 0
   return (
@@ -950,7 +958,7 @@ function StatBar({ label, value, max, input, output, cacheRead, cacheWrite, cost
         <span className={css.statBarFill} style={{ width: `${width}%` }} />
       </span>
       <span className={css.statValue}>{formatNumber(value)}</span>
-      <span className={css.statCost}>{formatCost(cost)}</span>
+      <span className={css.statCost}>{formatCost(cost, t)}</span>
     </div>
   )
 }
@@ -1047,12 +1055,12 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
     ? stats.months.map((month) => (
       <StatBar key={month.month} label={monthLabel(month.month, t)} value={month.total} max={maxMonth}
         input={month.input} output={month.output} cacheRead={month.cacheRead} cacheWrite={month.cacheWrite}
-        cost={estimateStatCost(month, prices, modelPrices)} />
+        cost={estimateStatCost(month, prices, modelPrices)} t={t} />
     ))
     : stats.days.map((day) => (
       <StatBar key={day.date} label={dateLabel(day.date, t)} value={day.total} max={maxDay}
         input={day.input} output={day.output} cacheRead={day.cacheRead} cacheWrite={day.cacheWrite}
-        cost={estimateStatCost(day, prices, modelPrices)} />
+        cost={estimateStatCost(day, prices, modelPrices)} t={t} />
     ))
 
   return (
@@ -1063,7 +1071,7 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
           <div className={css.statsTotalRow}>
             <span className={css.statsTotalLabel}>{t('totalLabel')}</span>
             <span className={css.mono}>{formatNumber(totalAll)}</span>
-            <span className={css.statsTotalSub}>{t('totalSub')} · {t('approx')}{formatCost(totalCost)}</span>
+            <span className={css.statsTotalSub}>{t('totalSub')} · {t('approx')}{formatCost(totalCost, t)}</span>
           </div>
         </div>
         <div className={css.budgetWrap}>
@@ -1071,7 +1079,7 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
             <span className={css.editLabel}>{t('budgetLabel')}</span>
             {/* "used this month / budget" — the used amount resets each month. */}
             {renderEditor('budget', budgetMonthly > 0 ? budgetMonthly : null,
-              budgetMonthly > 0 ? `${formatCost(monthCost)} / ${formatCost(budgetMonthly)}` : t('notSet'))}
+              budgetMonthly > 0 ? `${formatCost(monthCost, t)} / ${formatCost(budgetMonthly, t)}` : t('notSet'))}
           </div>
           {budgetMonthly > 0 && (
             <span className={css.budgetTrack}>
@@ -1917,7 +1925,7 @@ export function TokenHud({ t, sessionsList }: {
             </div>
             <div className={`${css.footCol} ${css.footRightCol}`}>
               <span className={css.footCost}>{t('costNow')}</span>
-              <span className={css.footCost}><b>{formatCost(totalCostNow)}</b></span>
+              <span className={css.footCost}><b>{formatCost(totalCostNow, t)}</b></span>
             </div>
             <div className={`${css.footCol} ${css.footRightCol}`}>
               <span className={css.footDate}>{formatDateShort(snapshot.generatedAt)}</span>
