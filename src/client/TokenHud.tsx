@@ -86,6 +86,8 @@ export interface TokenSnapshot {
   readonly tps?: number
   /** Monthly budget in CNY (0 = disabled). */
   readonly budgetMonthly?: number
+  /** Host config: true hides the entire HUD (pill + panel). */
+  readonly hidden?: boolean
 }
 
 /** One pricing tier: cache hit / miss / output (CNY per 1M tokens). */
@@ -1206,7 +1208,7 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
 export function TokenHud({ t, sessionsList }: {
   readonly t: Translate
   readonly sessionsList: ObservableSnapshot<SessionListState>
-}): JSX.Element {
+}): JSX.Element | null {
   const [snapshot, setSnapshot] = useState<TokenSnapshot | null>(null)
   const [stats, setStats] = useState<TokenStats | null>(null)
   const [balance, setBalance] = useState<BalanceInfo | null>(null)
@@ -1779,6 +1781,11 @@ export function TokenHud({ t, sessionsList }: {
   const hostStyle: React.CSSProperties = position !== null
     ? { right: 'auto', bottom: 'auto', left: position.x, top: position.y }
     : {}
+
+  if (snapshot?.hidden === true) {
+    // Host config `hidden: true`: render nothing — no pill, no panel.
+    return null
+  }
 
   if (snapshot === null) {
     return (

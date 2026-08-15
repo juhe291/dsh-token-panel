@@ -4,6 +4,12 @@ This file records user-visible changes to dsh-token-panel. Format based on [Keep
 
 [中文版](CHANGELOG.md) ｜ **English**
 
+## [0.4.5] - 2026-08-15
+
+### Added
+
+- **Hide-the-HUD setting**: new `hidden` config option (DSH settings / `cordis.patch.yml`) — set to `true` and the whole HUD (including the bottom-right pill) stops rendering; flip back to `false` to restore. No need to uninstall when you just don't want to see the panel
+
 ## [0.4.4] - 2026-08-15
 
 ### Fixed

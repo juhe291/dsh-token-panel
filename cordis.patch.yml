@@ -44,6 +44,10 @@
             offpeak: { hit: 0.15,  miss: 4.5, output: 13.5 }
         # Monthly budget in CNY (0 = meter disabled).
         budgetMonthly: 0
+        # Hide the whole HUD (pill + panel). Set to true from DSH settings to
+        # silence the panel while keeping the plugin installed; flip back to
+        # false (or remove the key) to restore.
+        hidden: false
         # Durable per-day usage log directory. Defaults to
         # ~/.dsh/cache/dsh-token-panel when omitted.
         # dataDir: ~/.dsh/cache/dsh-token-panel

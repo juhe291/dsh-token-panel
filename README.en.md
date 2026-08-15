@@ -3,7 +3,7 @@
 # dsh-token-panel
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.4-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
+[![Version](https://img.shields.io/badge/version-0.4.5-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
 [![Platform](https://img.shields.io/badge/platform-web-cyan?style=flat-square)](https://github.com/juhe291/dsh-token-panel)
 [![Topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-8A2BE2?style=flat-square)](https://github.com/topics/dsh-plugin)
 
@@ -185,6 +185,7 @@ In your profile's `cordis.patch.yml` (or the plugin section of `settings.yaml`):
 | `priceOffpeak*` | `1.5 / 0.05 / 4.5` | Off-peak fallback prices |
 | `modelPrices` | built-in flash + pro | Per-model price tables (flat / peak / off-peak tiers); override or add models |
 | `budgetMonthly` | `0` | Monthly budget (CNY); >0 shows a budget bar, or click the value in the stats view to set it directly |
+| `hidden` | `false` | `true` hides the entire HUD (pill + panel); flip back to `false` in DSH settings to restore |
 | `dataDir` | `~/.dsh/cache/dsh-token-panel` | Durable usage-log directory |
 
 > Built-in defaults match the official DeepSeek tables (flat legacy rates before 2026-08-17, peak/off-peak after). Adjust `modelPrices` for other models/providers.

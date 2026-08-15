@@ -67,6 +67,9 @@ export interface Config {
   budgetMonthly: number
   /** Directory for durable per-day usage logs (default ~/.dsh/cache/dsh-token-panel). */
   dataDir?: string
+  /** Hide the entire HUD (pill + panel). Set from DSH settings to silence
+   *  the panel while keeping the plugin installed; flip back to restore. */
+  hidden?: boolean
 }
 
 /** One model's three pricing tiers (CNY per 1M tokens). */
@@ -191,6 +194,8 @@ export interface TokenPanelSnapshot {
   readonly tps: number
   /** Monthly budget in CNY (0 = meter disabled). */
   readonly budgetMonthly: number
+  /** True when the host config hides the whole HUD. */
+  readonly hidden: boolean
 }
 
 /** Display-only price estimate (CNY per 1M tokens). */
@@ -695,6 +700,7 @@ export class TokenPanelService extends Service {
       modelPrices: this.resolveModelPrices(now),
       tps,
       budgetMonthly: this.config.budgetMonthly,
+      hidden: this.config.hidden === true,
     }
   }
 

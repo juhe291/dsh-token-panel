@@ -62,6 +62,8 @@ export interface TokenSnapshot {
     readonly tps?: number;
     /** Monthly budget in CNY (0 = disabled). */
     readonly budgetMonthly?: number;
+    /** Host config: true hides the entire HUD (pill + panel). */
+    readonly hidden?: boolean;
 }
 /** One pricing tier: cache hit / miss / output (CNY per 1M tokens). */
 export interface PriceTier {
@@ -261,5 +263,5 @@ type Translate = (key: keyof TokenHudLocale) => string;
 export declare function TokenHud({ t, sessionsList }: {
     readonly t: Translate;
     readonly sessionsList: ObservableSnapshot<SessionListState>;
-}): JSX.Element;
+}): JSX.Element | null;
 export {};
