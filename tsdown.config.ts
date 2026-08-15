@@ -44,8 +44,26 @@ const GENERATED_REMOTE = /^@deepseek-ai\/dsh-[a-z0-9]+(?:-[a-z0-9]+)*\/remote$/
 /** Virtual-id wrapper keeping module CSS away from tsdown's own css pipeline. */
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
+/** Real source file per neutral CSS virtual id (resolved in load()). */
+const cssSources = new Map<string, string>()
 
 const PLUGIN_ID = 'dsh-token-panel'
+
+/**
+ * Neutral virtual id for a css module. Rolldown stamps `//#region` markers
+ * with the virtual id into the emitted bundle, so the id must never contain
+ * an absolute or source-tree path — otherwise the artifact leaks the build
+ * machine's path (and trips the "no src/ references" verify on Linux CI,
+ * where the path uses forward slashes). Relative to `src/`, forward slashes.
+ */
+function cssVirtualId(absPath: string): string {
+  const marker = `${sep}src${sep}`
+  const srcIndex = absPath.indexOf(marker)
+  const relative = srcIndex !== -1
+    ? absPath.slice(srcIndex + marker.length).replaceAll('\\', '/')
+    : basename(absPath)
+  return CSS_VIRTUAL_PREFIX + relative + CSS_VIRTUAL_SUFFIX
+}
 
 const config: UserConfig = {
   name: `${PLUGIN_ID}/client`,
@@ -80,11 +98,14 @@ const config: UserConfig = {
     resolveId(source: string, importer: string | undefined) {
       if (!source.endsWith('.module.css')) return null
       const abs = importer !== undefined ? sourceAssetPath(source, importer) : source
-      return CSS_VIRTUAL_PREFIX + abs + CSS_VIRTUAL_SUFFIX
+      const virtualId = cssVirtualId(abs)
+      cssSources.set(virtualId, abs)
+      return virtualId
     },
     async load(virtualId: string) {
       if (!virtualId.startsWith(CSS_VIRTUAL_PREFIX)) return null
-      const fileId = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
+      const fileId = cssSources.get(virtualId)
+      if (fileId === undefined) return null
       this.addWatchFile(fileId)
       const source = readFileSync(fileId)
       const { code, exports: cssExports } = transform({
