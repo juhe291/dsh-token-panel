@@ -367,6 +367,15 @@ function formatAxisTick(value: number): string {
   return formatAxisNumber(value)
 }
 
+/** Rough SVG text width at ~9px mono: CJK glyphs are wider than ASCII. */
+function estimateTextW(text: string): number {
+  let width = 0
+  for (const ch of text) {
+    width += ch.charCodeAt(0) > 0x2e7f ? 10 : 5.6
+  }
+  return width
+}
+
 /** Format a timestamp as HH:MM:SS. */
 function formatTime(t: number): string {
   const date = new Date(t)
@@ -539,14 +548,15 @@ function niceCeil(value: number): number {
   return nice * magnitude
 }
 
-function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatTime, pointLabels = false, t }: {
+function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatTime, hover = false, t }: {
   readonly points: readonly HistoryPoint[]
   readonly now: number
   readonly width?: number
   readonly height?: number
   readonly tickFormat?: (t: number) => string
-  /** Show a compact value label above every plotted point (daily/monthly stats). */
-  readonly pointLabels?: boolean
+  /** Interactive mode (daily/monthly stats): hovering a plotted point pops a
+   *  bubble with the point's value + date. The Y axis stays visible. */
+  readonly hover?: boolean
   readonly t: Translate
 }) {
   /** Left gutter reserved for the Y-axis value labels. */
@@ -560,6 +570,8 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
   // Hysteresis state: the axis rises immediately but only steps down when
   // the data drops below half the current scale (Steam-like stability).
   const yMaxRef = useRef<number>(1)
+  /** Index of the plotted point currently hovered (hover bubble). */
+  const [hovered, setHovered] = useState<number | null>(null)
 
   const path = useMemo(() => {
     if (points.length === 0) return null
@@ -585,7 +597,7 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
         yMid: axisMax / 2,
         yMin: 0,
         latest: only.total,
-        coords: [{ x: AXIS_W + plotW / 2, y: yTop + (yBot - yTop) / 2, value: only.total }],
+        coords: [{ x: AXIS_W + plotW / 2, y: yTop + (yBot - yTop) / 2, value: only.total, t: only.t }],
       }
     }
     const rawMax = Math.max(...ordered.map((point) => point.total), 0)
@@ -627,9 +639,10 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
       yMin: min,
       // Newest value for the floating pill (ordered is ascending, so last).
       latest: ordered[ordered.length - 1]?.total ?? 0,
-      // All plotted points (x, y, value) for per-point value labels.
+      // All plotted points (x, y, value, t) for hover bubbles.
       coords: coords.map(([xValue, yValue], index) => ({
         x: xValue, y: yValue, value: ordered[index]?.total ?? 0,
+        t: ordered[index]?.t ?? now,
       })),
     }
   }, [points, width, height, now, plotW, TOP, BOT])
@@ -694,29 +707,55 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
           </>
         )
       })()}
-      {!pointLabels && yLabels.map((label) => (
+      {/* Y-axis value labels (top/middle/bottom) — always visible, even in
+          interactive mode. */}
+      {yLabels.map((label) => (
         <text key={label.y} x={AXIS_W - 5} y={label.y + 3}
           textAnchor="end"
           className={css.sparkYTick}>
           {formatAxisTick(label.value)}
         </text>
       ))}
-      {/* Per-point value labels (daily/monthly stats): each label sits on the
-          side away from the chart midline — points in the top half label
-          below, bottom half label above — so adjacent labels never overlap
-          and never collide with the (hidden) Y-axis scale. */}
-      {pointLabels && path.kind === 'line' && path.coords.map((point, index) => {
-        const text = formatAxisTick(point.value)
-        const midY = (TOP + BOT) / 2
-        const labelY = point.y < midY ? point.y + 12 : point.y - 8
+      {/* Hover interaction (daily/monthly stats): a transparent hit disc over
+          every plotted point pops a bubble with the point's value + date. The
+          bubble group is pointer-events:none so it never steals the pointer
+          and the disc stays hovered — no flicker. */}
+      {hover && path.coords.map((point, index) => (
+        <circle key={`hit-${index}`} cx={point.x} cy={point.y} r={7} fill="transparent"
+          pointerEvents="all"
+          onPointerEnter={() => { setHovered(index) }}
+          onPointerLeave={() => { setHovered((current) => (current === index ? null : current)) }} />
+      ))}
+      {hover && hovered !== null && path.coords[hovered] !== undefined && (() => {
+        const point = path.coords[hovered]!
+        const dateText = tickFormat(point.t)
+        const valueText = formatAxisTick(point.value)
+        const labelW = Math.max(34, Math.max(estimateTextW(dateText), estimateTextW(valueText)) + 16)
+        const BUBBLE_H = 24
+        // Bubble sits above the point; flips below when the point is near the
+        // top edge. Clamped horizontally so it never clips the panel.
+        const fitsAbove = point.y - BUBBLE_H - 9 >= 6
+        const by = fitsAbove
+          ? point.y - BUBBLE_H - 9
+          : Math.min(point.y + 9, height - BUBBLE_H - 2)
+        const bx = Math.min(Math.max(point.x, AXIS_W + labelW / 2 + 2), width - labelW / 2 - 2)
         return (
-          <text key={index} x={point.x} y={labelY}
-            textAnchor="middle"
-            className={css.sparkPointLabel}>
-            {text}
-          </text>
+          <g pointerEvents="none">
+            {/* Leader: dashed connector from the point to the bubble edge. */}
+            <line x1={point.x} y1={point.y} x2={point.x} y2={fitsAbove ? by + BUBBLE_H : by}
+              stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1"
+              vectorEffect="non-scaling-stroke" strokeDasharray="2 2" opacity="0.45" />
+            {/* Highlight ring on the hovered point itself. */}
+            <circle cx={point.x} cy={point.y} r="3.5" fill="var(--dsw-alias-bg-module-platform)"
+              stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1.6" />
+            <rect x={bx - labelW / 2} y={by} width={labelW} height={BUBBLE_H} rx={6}
+              fill="var(--dsw-alias-bg-module-platform)"
+              stroke="var(--dsw-alias-border-l2)" strokeWidth="1" />
+            <text x={bx} y={by + 9.5} textAnchor="middle" className={css.sparkBubbleDate}>{dateText}</text>
+            <text x={bx} y={by + 19} textAnchor="middle" className={css.sparkBubbleValue}>{valueText}</text>
+          </g>
         )
-      })}
+      })()}
       {/* Y-axis unit label: always present, even when the series is idle. */}
       <text x={AXIS_W - 5} y={2}
         textAnchor="end"
@@ -1015,11 +1054,11 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
           <div className={css.statsSparkWrap}>
             {subView === 'months'
               ? (monthPoints.length >= 1 && (
-                <Sparkline points={monthPoints} now={Date.now()} height={80.5} pointLabels
+                <Sparkline points={monthPoints} now={Date.now()} height={80.5} hover
                   tickFormat={(value) => formatMonthTick(value, t)} t={t} />
               ))
               : (dayPoints.length >= 1 && (
-                <Sparkline points={dayPoints} now={Date.now()} height={80.5} pointLabels tickFormat={formatDateTick} t={t} />
+                <Sparkline points={dayPoints} now={Date.now()} height={80.5} hover tickFormat={formatDateTick} t={t} />
               ))}
           </div>
           {listCount > 0 && (

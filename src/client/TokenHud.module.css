@@ -531,11 +531,18 @@
   font-family: var(--token-panel-mono);
 }
 
-/* Per-point value label on daily/monthly stat curves. */
-.sparkPointLabel {
+/* Hover bubble on daily/monthly stat curves: date line above, value below. */
+.sparkBubbleDate {
   fill: var(--dsw-alias-label-tertiary);
+  font-size: 7.5px;
+  font-family: var(--token-panel-mono);
+  letter-spacing: 0.02em;
+}
+
+.sparkBubbleValue {
+  fill: var(--dsw-alias-label-primary-foreground);
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 700;
   font-family: var(--token-panel-mono);
 }
 
