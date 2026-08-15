@@ -215,7 +215,7 @@
   /* Frosted glass, heavier than the panel: the chip is a floating
      pill, so it gets the most translucency and blur. */
   background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 36%, transparent);
-  backdrop-filter: blur(32px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
   box-shadow: 0 8px 28px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent);
   color: var(--dsw-alias-label-secondary);
   font: inherit;
@@ -297,7 +297,7 @@
   /* Frosted glass: translucent surface lets the page blur through.
      Panel is one step less transparent than the collapsed chip. */
   background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 50%, transparent);
-  backdrop-filter: blur(26px) saturate(1.35);
+  backdrop-filter: blur(14px) saturate(1.35);
   box-shadow:
     0 12px 32px color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent),
     0 32px 72px color-mix(in srgb, var(--dsw-alias-label-primary) 16%, transparent);
@@ -1058,7 +1058,7 @@
   border-color: color-mix(in srgb, var(--dsw-alias-border-l3) 32%, transparent);
   /* Dark frosted glass, one step less transparent than the chip. */
   background: color-mix(in srgb, var(--dsw-static-neutral-bluish-1000) 60%, transparent);
-  backdrop-filter: blur(24px) saturate(1.14);
+  backdrop-filter: blur(14px) saturate(1.14);
   box-shadow:
     0 12px 32px rgba(0, 0, 0, 0.45),
     0 32px 72px rgba(0, 0, 0, 0.55);
@@ -1066,7 +1066,7 @@
 
 :global(body[data-ds-dark-theme]) .chip {
   background: color-mix(in srgb, var(--dsw-static-neutral-bluish-1000) 44%, transparent);
-  backdrop-filter: blur(28px) saturate(1.25);
+  backdrop-filter: blur(16px) saturate(1.25);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
 
