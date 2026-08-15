@@ -30,7 +30,18 @@ jobs:
       - run: pnpm run build
       - run: pnpm run verify
 
-      # Trusted Publisher (OIDC): no npm token needed — npmjs verifies the
-      # GitHub workflow identity configured on the package's settings page.
+      # Fallback auth: if an npm automation token exists as the NPM_TOKEN
+      # repository secret, configure npm to use it. Without it, publishing
+      # falls back to Trusted Publisher (OIDC) — npmjs verifies the GitHub
+      # workflow identity configured on the package's settings page.
+      - name: Configure npm auth
+        if: secrets.NPM_TOKEN != ''
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
       - name: Publish
         run: npm publish --provenance --access public
+
+      - name: Cleanup npmrc
+        if: secrets.NPM_TOKEN != ''
+        run: rm -f ~/.npmrc
