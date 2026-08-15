@@ -43,18 +43,6 @@ dsh plugin --profile web add dsh-token-panel@latest
 
 The npm package ships the built `lib/` artifacts — **no local build needed**. Using `@latest` explicitly avoids the supply-chain age gate or a stale dependency spec landing on an old version (older releases carried the tool-call crash, now fixed).
 
-### Uninstall
-
-```sh
-dsh plugin --profile web remove dsh-token-panel
-```
-
-> 💡 **One-command fallback**: a freshly published plugin (under the ~24h supply-chain minimum release age) can make `dsh plugin remove` fail its lockfile verification. The package ships a one-command uninstaller that calls pnpm directly (bypassing that check) and cleans the bundle registration:
-> ```sh
-> node ~/.dsh/profiles/web/node_modules/dsh-token-panel/scripts/uninstall.mjs
-> ```
-> Restart the profile afterwards. Once the package is older than the policy cutoff (~24h), `dsh plugin remove` works normally again.
-
 ### From GitHub
 
 ```sh
@@ -74,6 +62,18 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 > ⚠️ **Git / local installs need Node ≥ 22.5**: source installs run the `prepare` build (pnpm 11.7 is pinned via the `packageManager` field and uses `node:sqlite`), so Node 20 fails to build. Prefer the npm install — no build required.
 
 > ⚠️ **`dsh` not recognized**: `dsh` is the DSH CLI. If your shell says the command is not found, install it globally first (`npm install -g @deepseek-ai/dsh`), then open a new terminal and re-run the commands above.
+
+### Uninstall
+
+```sh
+dsh plugin --profile web remove dsh-token-panel
+```
+
+> 💡 **One-command fallback**: a freshly published plugin (under the ~24h supply-chain minimum release age) can make `dsh plugin remove` fail its lockfile verification. The package ships a one-command uninstaller that calls pnpm directly (bypassing that check) and cleans the bundle registration:
+> ```sh
+> node ~/.dsh/profiles/web/node_modules/dsh-token-panel/scripts/uninstall.mjs
+> ```
+> Restart the profile afterwards. Once the package is older than the policy cutoff (~24h), `dsh plugin remove` works normally again.
 
 ---
 

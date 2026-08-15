@@ -45,18 +45,6 @@ npm 包直接使用打包好的 `lib/` 产物，**无需本机构建**。显式�
 
 > ⚠️ **装到了旧版本？** 若 `dsh plugin add dsh-token-panel` 解析到较早版本（pnpm 元数据缓存偶发），改用精确版本重装：`dsh plugin --profile web add dsh-token-panel@0.4.6`（换成当前最新版本号）。以后正常发版节奏下不会遇到。
 
-### 卸载
-
-```sh
-dsh plugin --profile web remove dsh-token-panel
-```
-
-> 💡 **一键卸载备用方案**：刚发布的插件（发布不足约 24 小时）可能被 DSH 的 supply-chain 年龄校验拦住 `dsh plugin remove`。此时用随包附带的一键卸载脚本（直接调 pnpm，绕开该校验，并同步清理 bundle 注册）：
-> ```sh
-> node ~/.dsh/profiles/web/node_modules/dsh-token-panel/scripts/uninstall.mjs
-> ```
-> 脚本执行完**重启 profile** 生效。约 24 小时后（包龄超过策略门槛）`dsh plugin remove` 恢复正常。
-
 ### 从 GitHub 安装
 
 ```sh
@@ -76,6 +64,18 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 > ⚠️ **从 GitHub / 本地安装需要 Node ≥ 22.5**：源码安装会执行 `prepare` 构建（pnpm 11.7 由 `packageManager` 字段固定，依赖 `node:sqlite`），Node 20 会构建失败。推荐从 npm 安装——无需构建。
 
 > ⚠️ **`dsh` 命令找不到**：`dsh` 是 DSH 自带的 CLI。若提示"无法将 dsh 识别为命令"，先全局安装：`npm install -g @deepseek-ai/dsh`，然后重开一个终端再执行上面的命令。
+
+### 卸载
+
+```sh
+dsh plugin --profile web remove dsh-token-panel
+```
+
+> 💡 **一键卸载备用方案**：刚发布的插件（发布不足约 24 小时）可能被 DSH 的 supply-chain 年龄校验拦住 `dsh plugin remove`。此时用随包附带的一键卸载脚本（直接调 pnpm，绕开该校验，并同步清理 bundle 注册）：
+> ```sh
+> node ~/.dsh/profiles/web/node_modules/dsh-token-panel/scripts/uninstall.mjs
+> ```
+> 脚本执行完**重启 profile** 生效。约 24 小时后（包龄超过策略门槛）`dsh plugin remove` 恢复正常。
 
 ---
 
