@@ -851,6 +851,7 @@ function Scrubber({ offset, max, onChange, t }: {
   readonly t: Translate
 }) {
   if (max <= 0) return null
+  const clamped = Math.min(offset, max)
   return (
     <div className={css.scrubberWrap}>
       <input
@@ -859,7 +860,7 @@ function Scrubber({ offset, max, onChange, t }: {
         min={0}
         max={max}
         step={max >= 60_000 ? 1000 : 1}
-        value={max - offset}
+        value={max - clamped}
         aria-label={t('scrubLabel')}
         onChange={(event) => { onChange(max - Number(event.currentTarget.value)) }}
       />
