@@ -38,10 +38,16 @@
 ### From npm
 
 ```sh
-dsh plugin --profile web add dsh-token-panel
+dsh plugin --profile web add dsh-token-panel@latest
 ```
 
-The npm package ships the built `lib/` artifacts — **no local build needed**.
+The npm package ships the built `lib/` artifacts — **no local build needed**. Using `@latest` explicitly avoids the supply-chain age gate or a stale dependency spec landing on an old version (older releases carried the tool-call crash, now fixed).
+
+### Uninstall
+
+```sh
+dsh plugin --profile web remove dsh-token-panel
+```
 
 ### From GitHub
 

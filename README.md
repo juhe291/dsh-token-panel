@@ -38,10 +38,16 @@
 ### 从 npm 安装（推荐）
 
 ```sh
-dsh plugin --profile web add dsh-token-panel
+dsh plugin --profile web add dsh-token-panel@latest
 ```
 
-npm 包直接使用打包好的 `lib/` 产物，**无需本机构建**。
+npm 包直接使用打包好的 `lib/` 产物，**无需本机构建**。显式写 `@latest` 可避免 supply-chain 年龄门控或旧依赖规格把安装落到旧版本（旧版曾有工具调用崩溃缺陷，已修复）。
+
+### 卸载
+
+```sh
+dsh plugin --profile web remove dsh-token-panel
+```
 
 ### 从 GitHub 安装
 
