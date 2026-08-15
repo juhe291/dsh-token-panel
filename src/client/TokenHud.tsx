@@ -548,15 +548,20 @@ function niceCeil(value: number): number {
   return nice * magnitude
 }
 
-function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatTime, hover = false, t }: {
+function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatTime, hover = false, follow = false, t }: {
   readonly points: readonly HistoryPoint[]
   readonly now: number
   readonly width?: number
   readonly height?: number
   readonly tickFormat?: (t: number) => string
-  /** Interactive mode (daily/monthly stats): hovering a plotted point pops a
-   *  bubble with the point's value + date. The Y axis stays visible. */
+  /** Disc-per-point hover (daily/monthly stats): hovering a plotted point pops
+   *  a bubble with that point's value. The last point (current day/month) is
+   *  excluded — its floating value pill already labels it. */
   readonly hover?: boolean
+  /** Steam-style follow (live trends): hovering anywhere along the curve snaps
+   *  to the nearest sample and pops a bubble with its value that follows the
+   *  pointer. */
+  readonly follow?: boolean
   readonly t: Translate
 }) {
   /** Left gutter reserved for the Y-axis value labels. */
@@ -572,6 +577,8 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
   const yMaxRef = useRef<number>(1)
   /** Index of the plotted point currently hovered (hover bubble). */
   const [hovered, setHovered] = useState<number | null>(null)
+  /** The svg element, for mapping pointer coords back into viewBox space. */
+  const svgRef = useRef<SVGSVGElement | null>(null)
 
   const path = useMemo(() => {
     if (points.length === 0) return null
@@ -660,7 +667,7 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
   ]
 
   return (
-    <svg className={css.spark} viewBox={`0 0 ${width} ${height}`} width="100%" height={height}
+    <svg ref={svgRef} className={css.spark} viewBox={`0 0 ${width} ${height}`} width="100%" height={height}
       preserveAspectRatio="none" role="img" aria-label={t('token')}>
       <defs>
         <linearGradient id="tokenSparkFill" x1="0" y1="0" x2="0" y2="1">
@@ -716,18 +723,40 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
           {formatAxisTick(label.value)}
         </text>
       ))}
-      {/* Hover interaction (daily/monthly stats): a transparent hit disc on
-          every plotted point pops a bubble with that point's value. The last
-          point (current day/month) gets no disc — the floating value pill
-          above it already labels it. The bubble group is pointer-events:none
-          so it never steals the pointer and the disc stays hovered. */}
+      {/* Hover interaction. Stats mode (`hover`): a transparent hit disc on
+          every plotted point except the last — the floating value pill already
+          labels the current day/month. Live mode (`follow`): a thick invisible
+          hit band along the whole curve; the pointer snaps to the nearest
+          sample and the bubble follows it, Steam-style. Bubble groups are
+          pointer-events:none so they never steal the pointer. */}
       {hover && path.coords.slice(0, -1).map((point, index) => (
         <circle key={`hit-${index}`} cx={point.x} cy={point.y} r={8} fill="transparent"
           pointerEvents="all"
           onPointerEnter={() => { setHovered(index) }}
           onPointerLeave={() => { setHovered((current) => (current === index ? null : current)) }} />
       ))}
-      {hover && hovered !== null && hovered < path.coords.length - 1
+      {follow && path.kind === 'line' && (
+        <path d={path.line} fill="none" stroke="transparent" strokeWidth={14}
+          strokeLinecap="round" strokeLinejoin="round" pointerEvents="all"
+          onPointerMove={(event) => {
+            const svgEl = svgRef.current
+            if (svgEl === null || path.coords.length === 0) return
+            const rect = svgEl.getBoundingClientRect()
+            if (rect.width <= 0) return
+            // The svg stretches horizontally (preserveAspectRatio="none"),
+            // so map the pointer back with the rendered-to-viewBox scale.
+            const x = (event.clientX - rect.left) * (width / rect.width)
+            let nearest = 0
+            let best = Infinity
+            for (let index = 0; index < path.coords.length; index++) {
+              const distance = Math.abs(path.coords[index]!.x - x)
+              if (distance < best) { best = distance; nearest = index }
+            }
+            setHovered(nearest)
+          }}
+          onPointerLeave={() => { setHovered(null) }} />
+      )}
+      {(hover || follow) && hovered !== null && (follow || hovered < path.coords.length - 1)
         && path.coords[hovered] !== undefined && (() => {
         const point = path.coords[hovered]!
         const valueText = formatAxisTick(point.value)
@@ -742,6 +771,12 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
         const bx = Math.min(Math.max(point.x, AXIS_W + labelW / 2 + 2), width - labelW / 2 - 2)
         return (
           <g pointerEvents="none">
+            {/* Steam-style guide: faint vertical line through the sample. */}
+            {follow && (
+              <line x1={point.x} y1={TOP} x2={point.x} y2={BOT}
+                stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1"
+                vectorEffect="non-scaling-stroke" strokeDasharray="2 3" opacity="0.18" />
+            )}
             {/* Leader: dashed connector from the point to the bubble edge. */}
             <line x1={point.x} y1={point.y} x2={point.x} y2={fitsAbove ? by + BUBBLE_H : by}
               stroke="var(--dsw-alias-state-business-primary)" strokeWidth="1"
@@ -752,11 +787,12 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
             <rect x={bx - labelW / 2} y={by} width={labelW} height={BUBBLE_H} rx={6}
               fill="var(--dsw-alias-bg-module-platform)"
               stroke="var(--dsw-alias-border-l2)" strokeWidth="1" />
-            {/* fill/font via inline style — highest priority, no stylesheet
-                can override the value color or hide the text. */}
+            {/* fill/font via inline style — highest priority. label-secondary
+                (dark) reads on the light bubble; primary-foreground is white
+                (meant for the blue pill) and was invisible here. */}
             <text x={bx} y={by + 13} textAnchor="middle"
               style={{
-                fill: 'var(--dsw-alias-label-primary-foreground)',
+                fill: 'var(--dsw-alias-label-secondary)',
                 fontSize: 10,
                 fontWeight: 700,
                 fontFamily: 'var(--token-panel-mono)',
@@ -871,7 +907,7 @@ function SessionRow({ row, prices, modelPrices, rangeMs, now, t, onHint, onHintE
       </button>
       {open && (
         <div className={css.rowDetail}>
-          {history.length >= 2 && <Sparkline points={history} now={now} t={t} />}
+          {history.length >= 2 && <Sparkline points={history} now={now} follow t={t} />}
           <div className={css.detailLine}>
             <span className={css.detailItem}><span className={css.detailLabel}>{t('input')}</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.uncachedInputTokens)}</span></span>
             <span className={css.detailItem}><span className={css.detailLabel}>{t('output')}</span><span className={css.mono}>{usage === undefined ? '—' : formatNumber(usage.outputTokens)}</span></span>
@@ -1809,7 +1845,7 @@ export function TokenHud({ t, sessionsList }: {
                     </div>
                   )}
                   <div className={css.sparkWrap}>
-                    <Sparkline points={topHistory} now={now} t={t} />
+                    <Sparkline points={topHistory} now={now} follow t={t} />
                   </div>
                 </section>
               )}
