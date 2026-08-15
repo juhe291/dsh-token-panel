@@ -569,9 +569,14 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
 
   const path = useMemo(() => {
     if (points.length === 0) return null
+    // Defensive: the curve math assumes ascending timestamps. If a caller
+    // passes newest-first data (e.g. stats days), sort before plotting.
+    const ordered = points.length > 1 && points[0]!.t > points[points.length - 1]!.t
+      ? [...points].sort((a, b) => a.t - b.t)
+      : points
     // Single point: render a centered dot with its tick (curve needs 2+).
-    if (points.length === 1) {
-      const only = points[0]
+    if (ordered.length === 1) {
+      const only = ordered[0]
       if (only === undefined) return null
       const yTop = TOP
       const yBot = BOT
@@ -585,9 +590,10 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
         yMax: axisMax,
         yMid: axisMax / 2,
         yMin: 0,
+        latest: only.total,
       }
     }
-    const rawMax = Math.max(...points.map((point) => point.total), 0)
+    const rawMax = Math.max(...ordered.map((point) => point.total), 0)
     // Rise immediately; only descend below half the current scale.
     const current = yMaxRef.current
     if (rawMax > current || rawMax < current * 0.5) {
@@ -596,14 +602,14 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
     const max = yMaxRef.current
     const min = 0
     const span = Math.max(max - min, 1)
-    const t0 = points[0]?.t ?? now
-    const t1 = points[points.length - 1]?.t ?? now
+    const t0 = ordered[0]?.t ?? now
+    const t1 = ordered[ordered.length - 1]?.t ?? now
     const tSpan = Math.max(t1 - t0, 1)
     // Plot area sits between TOP and BOT (gridlines at both ends).
     const y = (value: number): number => BOT - ((value - min) / span) * (BOT - TOP)
     // Right edge keeps 4px clearance so the last dot never clips the panel.
     const x = (t: number): number => AXIS_W + ((t - t0) / tSpan) * (plotW - 4)
-    const coords = points.map((point) => [x(point.t), y(point.total)] as const)
+    const coords = ordered.map((point) => [x(point.t), y(point.total)] as const)
     const line = coords.map(([xValue, yValue], index) =>
       `${index === 0 ? 'M' : 'L'}${xValue.toFixed(1)},${yValue.toFixed(1)}`).join(' ')
     const area = `${line} L${width},${BOT} L${AXIS_W},${BOT} Z`
@@ -618,6 +624,8 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
       yMax: max,
       yMid: max / 2,
       yMin: min,
+      // Newest value for the floating pill (ordered is ascending, so last).
+      latest: ordered[ordered.length - 1]?.total ?? 0,
     }
   }, [points, width, height, now, plotW, TOP, BOT])
 
@@ -658,7 +666,7 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
       {(path.kind === 'line' || path.kind === 'dot') && (() => {
         const cx = path.kind === 'line' ? path.last[0] : path.x
         const cy = path.kind === 'line' ? path.last[1] : path.y
-        const text = formatAxisTick(points[points.length - 1]?.total ?? 0)
+        const text = formatAxisTick(path.latest ?? 0)
         const labelW = text.length * 5 + 8
         // Pill floats above the point; flip below when near the top edge.
         const pillY = cy - 20 < 6 ? cy + 12 : cy - 20
@@ -863,14 +871,20 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
   const [listExpanded, setListExpanded] = useState(false)
 
   // Hooks must run before any conditional return (React rules).
-  const dayPoints = useMemo<readonly HistoryPoint[]>(() => stats === null ? [] : stats.days.map((day) => ({
-    t: Date.parse(`${day.date}T12:00:00`),
-    total: day.total,
-  })), [stats])
-  const monthPoints = useMemo<readonly HistoryPoint[]>(() => stats === null ? [] : stats.months.map((month) => ({
-    t: Date.parse(`${month.month}-15T12:00:00`),
-    total: month.total,
-  })), [stats])
+  // Sparkline expects ascending time order; the stats API returns days/months
+  // newest-first, so sort each series before building points.
+  const dayPoints = useMemo<readonly HistoryPoint[]>(() => stats === null ? [] : [...stats.days]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((day) => ({
+      t: Date.parse(`${day.date}T12:00:00`),
+      total: day.total,
+    })), [stats])
+  const monthPoints = useMemo<readonly HistoryPoint[]>(() => stats === null ? [] : [...stats.months]
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .map((month) => ({
+      t: Date.parse(`${month.month}-15T12:00:00`),
+      total: month.total,
+    })), [stats])
 
   if (stats === null) {
     return <span className={css.empty}>{t('loading')}</span>
