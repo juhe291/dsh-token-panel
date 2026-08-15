@@ -46,4 +46,4 @@
         budgetMonthly: 0
         # Durable per-day usage log directory. Defaults to
         # ~/.dsh/cache/dsh-token-panel when omitted.
-        # dataDir: C:\Users\q1684\.dsh\cache\dsh-token-panel
+        # dataDir: ~/.dsh/cache/dsh-token-panel
