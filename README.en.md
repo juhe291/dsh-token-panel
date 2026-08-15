@@ -40,6 +40,8 @@
 dsh plugin --profile web add dsh-token-panel
 ```
 
+The npm package ships the built `lib/` artifacts — **no local build needed**.
+
 ### From GitHub
 
 ```sh
@@ -55,6 +57,8 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 **Restart the profile**, then refresh the browser — the TOKEN pill appears bottom-right.
 
 > ⚠️ **pnpm ≥ 10 blocks Git build scripts**: if the first install fails with `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`, add the `allowBuilds` entry printed in the error to the `pnpm-workspace.yaml` in your profile directory, then re-run the install command. This package ships a `prepare` build script **and** committed `lib/` artifacts, so it works with or without allowlisted builds.
+
+> ⚠️ **Git / local installs need Node ≥ 22.5**: source installs run the `prepare` build (pnpm 11.7 is pinned via the `packageManager` field and uses `node:sqlite`), so Node 20 fails to build. Prefer the npm install — no build required.
 
 ---
 

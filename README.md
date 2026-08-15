@@ -40,6 +40,8 @@
 dsh plugin --profile web add dsh-token-panel
 ```
 
+npm 包直接使用打包好的 `lib/` 产物，**无需本机构建**。
+
 ### 从 GitHub 安装
 
 ```sh
@@ -55,6 +57,8 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 安装完成后 **重启 profile**，刷新浏览器，右下角出现 TOKEN 胶囊。
 
 > ⚠️ **pnpm ≥ 10 拦截 Git 构建脚本**：首次安装若提示 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`，按提示把报错中的 `allowBuilds` 条目加入 profile 目录下的 `pnpm-workspace.yaml`，然后重跑安装命令。这是 pnpm 的安全机制（Git 依赖需要显式允许执行构建脚本），本包已自带 `prepare` 构建脚本与提交好的 `lib/` 产物，允许后即可正常安装。
+
+> ⚠️ **从 GitHub / 本地安装需要 Node ≥ 22.5**：源码安装会执行 `prepare` 构建（pnpm 11.7 由 `packageManager` 字段固定，依赖 `node:sqlite`），Node 20 会构建失败。推荐从 npm 安装——无需构建。
 
 ---
 
