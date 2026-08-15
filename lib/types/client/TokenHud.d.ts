@@ -261,8 +261,10 @@ export interface TokenHudLocale {
     readonly hideHud: string;
     /** Tooltip on the hide item: how to restore. */
     readonly hideHudRestore: string;
-    /** Settings-page description under the hide switch. */
-    readonly hideHudDesc: string;
+    /** Settings-page switch label (ON = HUD shown). */
+    readonly showHud: string;
+    /** Settings-page description under the show switch. */
+    readonly showHudDesc: string;
     /** Settings-page nav label for the token-panel section. */
     readonly settingsTitle: string;
 }

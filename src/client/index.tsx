@@ -114,7 +114,8 @@ export function apply(ctx: ClientContext): void {
     scrubLabel: 'Scrub through time',
     hideHud: 'Hide HUD',
     hideHudRestore: 'Hidden — restore from DSH settings',
-    hideHudDesc: 'Hide the whole panel (pill included). Switch off to restore.',
+    showHud: 'Show HUD',
+    showHudDesc: 'Turn off to hide the whole HUD (pill included).',
     settingsTitle: 'Token Panel',
   }
   const zh: TokenHudLocale = {
@@ -205,7 +206,8 @@ export function apply(ctx: ClientContext): void {
     scrubLabel: '拖动查看更早时间',
     hideHud: '隐藏 HUD',
     hideHudRestore: '已隐藏 — 可在 DSH 设置中恢复',
-    hideHudDesc: '隐藏整个面板（含右下角胶囊）。关闭即可恢复。',
+    showHud: '显示 HUD',
+    showHudDesc: '关闭开关即可隐藏整个 HUD（含右下角胶囊）。',
     settingsTitle: 'Token 面板',
   }
 

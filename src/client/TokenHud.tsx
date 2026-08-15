@@ -337,8 +337,10 @@ export interface TokenHudLocale {
   readonly hideHud: string
   /** Tooltip on the hide item: how to restore. */
   readonly hideHudRestore: string
-  /** Settings-page description under the hide switch. */
-  readonly hideHudDesc: string
+  /** Settings-page switch label (ON = HUD shown). */
+  readonly showHud: string
+  /** Settings-page description under the show switch. */
+  readonly showHudDesc: string
   /** Settings-page nav label for the token-panel section. */
   readonly settingsTitle: string
 }
@@ -897,11 +899,11 @@ export function TokenPanelSettingsSection({ t }: {
   return (
     <div className={css.settingsRow}>
       <div className={css.settingsText}>
-        <span className={css.settingsTitle}>{t('hideHud')}</span>
-        <span className={css.settingsDesc}>{t('hideHudDesc')}</span>
+        <span className={css.settingsTitle}>{t('showHud')}</span>
+        <span className={css.settingsDesc}>{t('showHudDesc')}</span>
       </div>
-      <button type="button" role="switch" aria-checked={hidden}
-        className={css.settingsSwitch} data-on={hidden} onClick={toggle}>
+      <button type="button" role="switch" aria-checked={!hidden}
+        className={css.settingsSwitch} data-on={!hidden} onClick={toggle}>
         <span className={css.settingsThumb} aria-hidden />
       </button>
     </div>
