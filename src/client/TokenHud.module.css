@@ -1052,7 +1052,7 @@
    glows, and a quieter sparkline fill. */
 :global(body[data-ds-dark-theme]) .panel {
   border-color: color-mix(in srgb, var(--dsw-alias-border-l3) 32%, transparent);
-  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 96%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 58%, var(--dsw-static-neutral-bluish-1000));
   backdrop-filter: blur(18px);
   box-shadow:
     0 12px 32px rgba(0, 0, 0, 0.45),
@@ -1060,14 +1060,16 @@
 }
 
 :global(body[data-ds-dark-theme]) .chip {
+  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 58%, var(--dsw-static-neutral-bluish-1000));
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
 
-/* Floating hint bubbles / menus / toasts: black shadow, no light halo. */
+/* Floating hint bubbles / menus / toasts: darker glass, black shadow. */
 :global(body[data-ds-dark-theme]) [data-hud-handle]::after,
 :global(body[data-ds-dark-theme]) .rowHint,
 :global(body[data-ds-dark-theme]) .pressMenu,
 :global(body[data-ds-dark-theme]) .toast {
+  background: color-mix(in srgb, var(--dsw-alias-bg-module-platform) 66%, var(--dsw-static-neutral-bluish-1000));
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
 }
 
