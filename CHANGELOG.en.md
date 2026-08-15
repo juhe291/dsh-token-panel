@@ -12,7 +12,7 @@ This file records user-visible changes to dsh-token-panel. Format based on [Keep
 
 ### Docs
 
-- Install docs now recommend `dsh-token-panel@latest`, with troubleshooting for "installed an old version" (reinstall with an exact version) and for a missing `dsh` command
+- Install docs now use an **exact version** (`dsh-token-panel@0.4.6`, bumped on each new release) — `@latest` can be derailed by the supply-chain age gate while a release is under ~24h old and resolve to an older version; plus troubleshooting for "installed an old version" and for a missing `dsh` command
 
 ## [0.4.6] - 2026-08-15
 

@@ -38,10 +38,14 @@
 ### From npm
 
 ```sh
-dsh plugin --profile web add dsh-token-panel@latest
+dsh plugin --profile web add dsh-token-panel@0.4.6
 ```
 
-The npm package ships the built `lib/` artifacts — **no local build needed**. Using `@latest` explicitly avoids the supply-chain age gate or a stale dependency spec landing on an old version (older releases carried the tool-call crash, now fixed).
+The npm package ships the built `lib/` artifacts — **no local build needed**. Use the **current latest version** in the command (bump it on each new release, see [Publishing a release](#publishing-a-release)).
+
+> ⚠️ **Why an exact version?** A freshly published release (under the ~24h supply-chain minimum release age) can make pnpm's `@latest` resolution fall back to an older version; an explicit version always installs the newest fixed release. Once the package is older than the policy cutoff, `@latest` becomes reliable.
+
+> ⚠️ **Got an old version?** Reinstall with the exact version above and confirm `npm view dsh-token-panel dist-tags.latest` reports the newest release.
 
 ### From GitHub
 

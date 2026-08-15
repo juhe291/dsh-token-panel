@@ -38,12 +38,14 @@
 ### 从 npm 安装（推荐）
 
 ```sh
-dsh plugin --profile web add dsh-token-panel@latest
+dsh plugin --profile web add dsh-token-panel@0.4.6
 ```
 
-npm 包直接使用打包好的 `lib/` 产物，**无需本机构建**。显式写 `@latest` 可避免 supply-chain 年龄门控或旧依赖规格把安装落到旧版本（旧版曾有工具调用崩溃缺陷，已修复）。
+npm 包直接使用打包好的 `lib/` 产物，**无需本机构建**。命令里的版本号请写**当前最新版**（发布新版本后同步更新此处，见 [发布新版本](#发布新版本)）。
 
-> ⚠️ **装到了旧版本？** 若 `dsh plugin add dsh-token-panel` 解析到较早版本（pnpm 元数据缓存偶发），改用精确版本重装：`dsh plugin --profile web add dsh-token-panel@0.4.6`（换成当前最新版本号）。以后正常发版节奏下不会遇到。
+> ⚠️ **为什么要写精确版本号？** 新发布的版本（不足约 24 小时）会被 DSH 的 supply-chain 年龄校验拦截，`@latest` 可能被 pnpm 解析回较早版本；显式写版本号才能保证装到最新且修好的版本。包龄超过门槛后 `@latest` 才可靠。
+
+> ⚠️ **装到了旧版本？** 若安装后版本不是最新，改用精确版本重装（如上命令），并确认 `npm view dsh-token-panel dist-tags.latest` 显示的是最新版。
 
 ### 从 GitHub 安装
 
