@@ -491,8 +491,8 @@ function estimateStatCost(
 function formatCost(cost: number, t: Translate): string {
   if (cost <= 0) return '¥0.00'
   if (cost >= 1) {
-    const [int, dec] = cost.toFixed(2).split('.')
-    return `¥${int.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${dec ?? '00'}`
+    const [int = '0', dec = '00'] = cost.toFixed(2).split('.')
+    return `¥${int.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${dec}`
   }
   if (cost >= 0.01) return `¥${cost.toFixed(3)}`
   return fill(t('costTiny'), { yuan: String(parseFloat(cost.toFixed(4))) })
