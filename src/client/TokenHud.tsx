@@ -382,16 +382,10 @@ function formatDateShort(t: number): string {
   return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
 }
 
-/** Locale-aware date label for a YYYY-MM-DD key. */
+/** Locale-aware date label for a YYYY-MM-DD key (e.g. 2026/8/14). */
 function dateLabel(date: string, t: Translate): string {
   const [y, m, d] = date.split('-')
-  const now = new Date()
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const yesterdayTs = now.getTime() - 86_400_000
-  const yesterday = `${new Date(yesterdayTs).getFullYear()}-${String(new Date(yesterdayTs).getMonth() + 1).padStart(2, '0')}-${String(new Date(yesterdayTs).getDate()).padStart(2, '0')}`
-  if (date === today) return t('today')
-  if (date === yesterday) return t('yesterday')
-  return `${Number(m)}/${Number(d)}`
+  return `${Number(y)}/${Number(m)}/${Number(d)}`
 }
 
 /** Locale-aware month label for a YYYY-MM key (e.g. 2026/8). */
@@ -502,10 +496,10 @@ function filterRange(points: readonly HistoryPoint[], now: number, rangeMs: numb
   return points.filter((point) => point.t >= cutoff)
 }
 
-/** Format a timestamp for a day-scale axis (M/D). */
+/** Format a timestamp for a day-scale axis (YYYY/M/D). */
 function formatDateTick(t: number): string {
   const date = new Date(t)
-  return `${date.getMonth() + 1}/${date.getDate()}`
+  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
 }
 
 /** Format a timestamp for a month-scale axis (locale-aware). */
