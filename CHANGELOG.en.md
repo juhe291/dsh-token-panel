@@ -4,6 +4,12 @@ This file records user-visible changes to dsh-token-panel. Format based on [Keep
 
 [中文版](CHANGELOG.md) ｜ **English**
 
+## [0.4.1] - 2026-08-15
+
+### Changed
+
+- Publishing now uses **Trusted Publisher (OpenID Connect)**: triggered from `v*` tags, publishes with **provenance signatures**, no local token needed
+
 ## [0.4.0] - 2026-08-15
 
 ### Added

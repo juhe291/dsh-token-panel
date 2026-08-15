@@ -4,6 +4,12 @@
 
 **中文** ｜ [English](CHANGELOG.en.md)
 
+## [0.4.1] - 2026-08-15
+
+### 变更
+
+- 发布流程启用 **Trusted Publisher（OpenID Connect）** 自动发布：从 `v*` 标签触发，带 **provenance 签名**，不再依赖本地 token
+
 ## [0.4.0] - 2026-08-15
 
 ### 新增
