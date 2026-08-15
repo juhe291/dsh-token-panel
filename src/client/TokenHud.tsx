@@ -902,8 +902,8 @@ export function TokenPanelSettingsSection({ t }: {
         <span className={css.settingsTitle}>{t('showHud')}</span>
         <span className={css.settingsDesc}>{t('showHudDesc')}</span>
       </div>
-      <button type="button" role="switch" aria-checked={!hidden}
-        className={css.settingsSwitch} data-on={!hidden} onClick={toggle}>
+      <button type="button" role="switch" aria-checked={hidden}
+        className={css.settingsSwitch} data-on={hidden} onClick={toggle}>
         <span className={css.settingsThumb} aria-hidden />
       </button>
     </div>
