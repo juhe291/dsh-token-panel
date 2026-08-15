@@ -251,7 +251,7 @@ export interface TokenHudLocale {
     readonly balanceInput: string;
     /** Placeholder when budget/balance is not set yet. */
     readonly notSet: string;
-    /** Tiny (< 1 cent) cost: '{fen}分' in zh, '¥{yuan}' in en. */
+    /** Tiny (< 1 cent) cost: '¥{yuan}' (trimmed decimals). */
     readonly costTiny: string;
 }
 type Translate = (key: keyof TokenHudLocale) => string;

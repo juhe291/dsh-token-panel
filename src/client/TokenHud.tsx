@@ -325,7 +325,7 @@ export interface TokenHudLocale {
   readonly balanceInput: string
   /** Placeholder when budget/balance is not set yet. */
   readonly notSet: string
-  /** Tiny (< 1 cent) cost: '{fen}分' in zh, '¥{yuan}' in en. */
+  /** Tiny (< 1 cent) cost: '¥{yuan}' (trimmed decimals). */
   readonly costTiny: string
 }
 
@@ -486,16 +486,13 @@ function estimateStatCost(
   return total
 }
 
-/** Format a CNY cost for display. Sub-cent amounts show in 分 (zh) or
- *  trimmed ¥ decimals (en) so they never read as a broken "¥0.1分". */
+/** Format a CNY cost for display. Sub-cent amounts show trimmed ¥ decimals
+ *  (e.g. ¥0.001) so they never read as a broken "¥0.1分". */
 function formatCost(cost: number, t: Translate): string {
   if (cost <= 0) return '¥0.00'
   if (cost >= 1) return `¥${cost.toFixed(2)}`
   if (cost >= 0.01) return `¥${cost.toFixed(3)}`
-  return fill(t('costTiny'), {
-    fen: (cost * 100).toFixed(1),
-    yuan: String(parseFloat(cost.toFixed(4))),
-  })
+  return fill(t('costTiny'), { yuan: String(parseFloat(cost.toFixed(4))) })
 }
 
 /** Occupancy percent for the pressure bar (capacity may be absent). */

@@ -195,7 +195,7 @@ export function apply(ctx: ClientContext): void {
     budgetInput: '修改本月预算',
     balanceInput: '修改账户余额',
     notSet: '未设置',
-    costTiny: '{fen}分',
+    costTiny: '¥{yuan}',
   }
 
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'token-panel: locale')
