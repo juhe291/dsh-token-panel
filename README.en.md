@@ -3,7 +3,7 @@
 # dsh-token-panel
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.2-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
+[![Version](https://img.shields.io/badge/version-0.4.3-blue?style=flat-square)](https://github.com/juhe291/dsh-token-panel/releases)
 [![Platform](https://img.shields.io/badge/platform-web-cyan?style=flat-square)](https://github.com/juhe291/dsh-token-panel)
 [![Topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-8A2BE2?style=flat-square)](https://github.com/topics/dsh-plugin)
 
@@ -20,6 +20,7 @@
 | ⏱️ **Auto peak/off-peak** | switches to peak/off-peak pricing **automatically** at the 2026-08-17 revision — no config change |
 | 🫧 **Hover to inspect values** | Steam-style follow bubble on live curves, per-point hover bubble on stats curves |
 | 🧊 **Frosted glass panel** | translucent frosted glass, consistent across light/dark, pill most transparent |
+| 🎛️ **Time scrubber** | look back through live history, pan stats to earlier periods |
 | ✏️ **Click-to-edit budget / balance** | inline editing in the stats view; balance decreases locally with token consumption |
 | 🖱️ **Drag + long-press menu** | four corner presets + custom default position, remembered across reloads |
 | 📊 **Durable daily / monthly stats** | JSONL logs on disk, survive restarts, get richer over time |
@@ -91,6 +92,7 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 - Session rows: **bold number = current context pressure** (k scale); grey `≈` = cumulative usage (M scale, incl. cache reads); **green `¥` = that session's estimated cost** (priced by the model the session actually used)
 - Click a row for details (input / output / cache read / cache write, pressure / projected / capacity, cost, context-usage bar) and its consumption curve
 - Curves: **auto-scaling Y axis** (1/2/2.5/5×10ⁿ rounding with hysteresis, zero when idle, unit label always visible) + gridlines + a dashed leader with a floating value pill at the latest point + time ticks on X; hover anywhere over the curve and a **follow bubble** shows the token value at that spot (Steam-download style)
+- A **time scrubber** under the curve: drag left to look back through the history buffer at earlier windows (size follows 2m / 5m / 15m); peak rate and the latest value follow the panned window
 - Peak consumption rate (t/s) above the curve; 2m / 5m / 15m window switching
 - The panel follows the conversation you are viewing; "Show all" reveals historic sessions (survive restarts)
 
@@ -98,7 +100,7 @@ dsh plugin --profile web add C:\path\to\dsh-token-panel
 
 - **Cumulative consumption** headline in one line (total tokens + ≈¥ cost)
 - **Editable budget / balance**: click a value to edit inline (Enter to save / Esc to cancel); the balance decreases locally with token consumption (persists across reloads), falling back to the API-fetched official balance when unset
-- **Daily / Monthly** switch: trend curve + detail list (collapsed by default, "Expand all" to see everything); hovering a plotted point pops a bubble with that day's / month's token value (the current day / month is skipped — its label is already shown)
+- **Daily / Monthly** switch: trend curve + detail list (collapsed by default, "Expand all" to see everything); hovering a plotted point pops a bubble with that day's / month's token value (the current day / month is skipped — its label is already shown); a **time scrubber** under the curve pans to earlier periods (defaults to the most recent 14 days / 6 months)
 - Usage is persisted per day (JSONL) and survives restarts
 
 ---
@@ -113,7 +115,7 @@ A compact pill in the bottom-right corner shows the total token pressure in real
 |---|---|
 | Session list | One row per session: **title + current context pressure + cumulative usage + session cost**; titles come from the DSH session-title service |
 | Session details | Click a row: input / output / cache-read / cache-write, pressure / projected / capacity, estimated cost, context-usage progress bar (turns red above 85%) |
-| Live curves | Per-session SVG area chart with auto-scaling Y axis (1/2/2.5/5×10ⁿ rounding + hysteresis, zero when idle, unit label always visible), gridlines, dashed leader with floating value pill, and **2m / 5m / 15m** range switching; hovering anywhere over the curve shows a follow bubble with the token value (Steam style) |
+| Live curves | Per-session SVG area chart with auto-scaling Y axis (1/2/2.5/5×10ⁿ rounding + hysteresis, zero when idle, unit label always visible), gridlines, dashed leader with floating value pill, and **2m / 5m / 15m** range switching; hovering anywhere over the curve shows a follow bubble with the token value (Steam style); a **time scrubber** below looks back through the history buffer |
 | Peak rate | Peak consumption rate (t/s) shown above the curve |
 | Follows current session | Only the open conversation is shown by default; historic sessions collapse behind "Show all" (survive restarts) |
 | Empty-session filter | Fresh conversations with 0 tokens are hidden entirely |
@@ -124,7 +126,7 @@ A compact pill in the bottom-right corner shows the total token pressure in real
 | Feature | Description |
 |---|---|
 | Daily / Monthly | Independent switch: trend curve + detail list (collapsed by default, "Expand all" to see every day / month) |
-| Trend curves | SVG curves over days / months with M/D date ticks and Y-axis labels; hovering a plotted point pops a bubble with that day's / month's token value |
+| Trend curves | SVG curves over days / months with M/D date ticks and Y-axis labels; hovering a plotted point pops a bubble with that day's / month's token value; a **time scrubber** below pans to earlier periods (defaults to the most recent 14 days / 6 months) |
 | Cumulative total | One-line headline: total tokens consumed plus the ≈¥ estimated cost |
 | Budget & balance | **Click values to edit inline** (Enter saves / Esc cancels); budget shows used-this-month / total with a progress bar (red over budget); balance decreases locally with token consumption, falling back to the API-fetched official balance when unset |
 | Durable | Usage is written to per-day JSONL logs on disk — **survives restarts** |

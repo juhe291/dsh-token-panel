@@ -4,6 +4,17 @@ This file records user-visible changes to dsh-token-panel. Format based on [Keep
 
 [中文版](CHANGELOG.md) ｜ **English**
 
+## [0.4.3] - 2026-08-15
+
+### Added
+
+- **Time scrubber (live)**: a slim bar under the live trend curve — drag left to look back through the history buffer at how the curve looked earlier (window size follows 2m / 5m / 15m); peak rate, latest-value pill and hover bubbles follow the panned window
+- **Time scrubber (stats)**: the same bar under the daily / monthly curves — shows the most recent 14 days / 6 months by default, drag to pan to earlier periods
+
+### Fixed
+
+- **Overlapping live time ticks** (2m / 5m / 15m): idle gaps made the last two time labels squeeze together; live ticks now sit at even time positions
+
 ## [0.4.2] - 2026-08-15
 
 ### Changed
