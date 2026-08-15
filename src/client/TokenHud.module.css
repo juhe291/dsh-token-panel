@@ -895,8 +895,8 @@
 }
 
 .footPrice[data-mode='peak'] {
-  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 16%, transparent);
-  color: var(--dsw-alias-state-warn-primary);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 16%, transparent);
+  color: var(--dsw-alias-state-error-primary);
 }
 
 .footPrice[data-mode='offpeak'] {
