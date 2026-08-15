@@ -110,6 +110,7 @@ export function apply(ctx: ClientContext): void {
     balanceInput: 'Edit account balance',
     notSet: 'Not set',
     costTiny: '¥{yuan}',
+    scrubLabel: 'Scrub through time',
   }
   const zh: TokenHudLocale = {
     token: 'TOKEN HUD',
@@ -196,6 +197,7 @@ export function apply(ctx: ClientContext): void {
     balanceInput: '修改账户余额',
     notSet: '未设置',
     costTiny: '¥{yuan}',
+    scrubLabel: '拖动查看更早时间',
   }
 
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'token-panel: locale')

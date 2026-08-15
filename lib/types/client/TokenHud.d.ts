@@ -253,6 +253,8 @@ export interface TokenHudLocale {
     readonly notSet: string;
     /** Tiny (< 1 cent) cost: '¥{yuan}' (trimmed decimals). */
     readonly costTiny: string;
+    /** aria-label for the time scrubber under curves. */
+    readonly scrubLabel: string;
 }
 type Translate = (key: keyof TokenHudLocale) => string;
 /** The top-level HUD: polling, view switching and layout. */

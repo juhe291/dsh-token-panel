@@ -327,6 +327,8 @@ export interface TokenHudLocale {
   readonly notSet: string
   /** Tiny (< 1 cent) cost: '¥{yuan}' (trimmed decimals). */
   readonly costTiny: string
+  /** aria-label for the time scrubber under curves. */
+  readonly scrubLabel: string
 }
 
 type Translate = (key: keyof TokenHudLocale) => string
@@ -506,10 +508,12 @@ function occupancy(row: SessionTokenRow): number | undefined {
   return Math.min(100, Math.max(0, (pressure / capacity) * 100))
 }
 
-/** Filter history points to the trailing window ending at `now`. */
-function filterRange(points: readonly HistoryPoint[], now: number, rangeMs: number): readonly HistoryPoint[] {
+/** Filter history points to the trailing window ending at `now` (optionally
+ *  capped at `end`, used when scrubbing back through time). */
+function filterRange(points: readonly HistoryPoint[], now: number, rangeMs: number, end?: number): readonly HistoryPoint[] {
   const cutoff = now - rangeMs
-  return points.filter((point) => point.t >= cutoff)
+  const upper = end ?? Infinity
+  return points.filter((point) => point.t >= cutoff && point.t <= upper)
 }
 
 /** Format a timestamp for a day-scale axis (M/D). */
@@ -837,6 +841,32 @@ function Sparkline({ points, now, width = 336, height = 80, tickFormat = formatT
   )
 }
 
+/** A slim time scrubber under the live trend / stats curves. `offset` is how
+ *  far back from the newest data (0 = live/latest, max = oldest available);
+ *  the thumb sits on the right at 0, media-player style. */
+function Scrubber({ offset, max, onChange, t }: {
+  readonly offset: number
+  readonly max: number
+  readonly onChange: (offset: number) => void
+  readonly t: Translate
+}) {
+  if (max <= 0) return null
+  return (
+    <div className={css.scrubberWrap}>
+      <input
+        type="range"
+        className={css.scrubber}
+        min={0}
+        max={max}
+        step={max >= 60_000 ? 1000 : 1}
+        value={max - offset}
+        aria-label={t('scrubLabel')}
+        onChange={(event) => { onChange(max - Number(event.currentTarget.value)) }}
+      />
+    </div>
+  )
+}
+
 /** Collapsed pill shown when the panel is closed. */
 function CollapsedChip({ total, cumulative, tps, t }: {
   readonly total: number
@@ -994,6 +1024,8 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
   const [subView, setSubView] = useState<'days' | 'months'>('days')
   /** Daily/monthly list collapsed by default; expand reveals everything. */
   const [listExpanded, setListExpanded] = useState(false)
+  /** Time scrubber: how many days/months back from the newest the curve shows. */
+  const [statOffset, setStatOffset] = useState(0)
 
   // Hooks must run before any conditional return (React rules).
   // Sparkline expects ascending time order; the stats API returns days/months
@@ -1014,6 +1046,16 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
   if (stats === null) {
     return <span className={css.empty}>{t('loading')}</span>
   }
+  // Curve windows: show the most recent N days / M months; the scrubber pans
+  // the window backward through the full history (offset = how far back).
+  const DAY_WINDOW = 14
+  const MONTH_WINDOW = 6
+  const maxDayOffset = Math.max(0, dayPoints.length - DAY_WINDOW)
+  const maxMonthOffset = Math.max(0, monthPoints.length - MONTH_WINDOW)
+  const daySliceStart = maxDayOffset - Math.min(statOffset, maxDayOffset)
+  const monthSliceStart = maxMonthOffset - Math.min(statOffset, maxMonthOffset)
+  const windowDayPoints = dayPoints.slice(daySliceStart, daySliceStart + DAY_WINDOW)
+  const windowMonthPoints = monthPoints.slice(monthSliceStart, monthSliceStart + MONTH_WINDOW)
   const prices = stats.prices ?? { input: 1, cacheRead: 0.02, output: 2 }
   const modelPrices = stats.modelPrices
   const maxMonth = Math.max(...stats.months.map((month) => month.total), 1)
@@ -1112,20 +1154,26 @@ function StatsView({ stats, t, budgetMonthly, totalCost, effectiveBalance,
         <section className={css.section}>
           <div className={css.sectionLabel}>
             <div className={css.viewBar} role="group" aria-label={t('granularity')}>
-              <button type="button" className={css.viewButton} data-active={subView === 'days'} onClick={() => { setListExpanded(false); setSubView('days') }}>{t('byDay')}</button>
-              <button type="button" className={css.viewButton} data-active={subView === 'months'} onClick={() => { setListExpanded(false); setSubView('months') }}>{t('byMonth')}</button>
+              <button type="button" className={css.viewButton} data-active={subView === 'days'} onClick={() => { setListExpanded(false); setStatOffset(0); setSubView('days') }}>{t('byDay')}</button>
+              <button type="button" className={css.viewButton} data-active={subView === 'months'} onClick={() => { setListExpanded(false); setStatOffset(0); setSubView('months') }}>{t('byMonth')}</button>
             </div>
           </div>
           <div className={css.statsSparkWrap}>
             {subView === 'months'
-              ? (monthPoints.length >= 1 && (
-                <Sparkline points={monthPoints} now={Date.now()} height={80.5} hover
+              ? (windowMonthPoints.length >= 1 && (
+                <Sparkline points={windowMonthPoints} now={Date.now()} height={80.5} hover
                   tickFormat={(value) => formatMonthTick(value, t)} t={t} />
               ))
-              : (dayPoints.length >= 1 && (
-                <Sparkline points={dayPoints} now={Date.now()} height={80.5} hover tickFormat={formatDateTick} t={t} />
+              : (windowDayPoints.length >= 1 && (
+                <Sparkline points={windowDayPoints} now={Date.now()} height={80.5} hover tickFormat={formatDateTick} t={t} />
               ))}
           </div>
+          <Scrubber
+            offset={subView === 'months' ? Math.min(statOffset, maxMonthOffset) : Math.min(statOffset, maxDayOffset)}
+            max={subView === 'months' ? maxMonthOffset : maxDayOffset}
+            onChange={setStatOffset}
+            t={t}
+          />
           {listCount > 0 && (
             <>
               {listExpanded && listItems}
@@ -1165,6 +1213,8 @@ export function TokenHud({ t, sessionsList }: {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rangeMs, setRangeMs] = useState<number>(RANGES[1]?.ms ?? 5 * 60_000)
+  /** Time scrubber: how far back (ms) from `now` the live trend window ends. */
+  const [liveOffset, setLiveOffset] = useState<number>(0)
   const [now, setNow] = useState<number>(Date.now())
   const [showAll, setShowAll] = useState(false)
   const inFlight = useRef(false)
@@ -1670,16 +1720,37 @@ export function TokenHud({ t, sessionsList }: {
     ? Math.max(0, userBalance.value - Math.max(0, totalCostNow - userBalance.baseline))
     : (balance?.available === true && balance.value !== undefined ? balance.value : null)
 
-  const topHistory = useMemo(() => {
+  /** Raw (unfiltered) history of the session the top trend follows. */
+  const rawHistory = useMemo(() => {
     if (snapshot === null || snapshot.sessions.length === 0) return []
-    // Prefer the current (open) session's curve; fall back to the largest.
     const current = currentSessionId !== undefined
       ? snapshot.sessions.find((row) => row.sessionId === currentSessionId)
       : undefined
     const source = current ?? snapshot.sessions[0]
-    // Per-tick consumption deltas: idle ticks drop to zero.
-    return toConsumption(filterRange(source?.history ?? [], now, rangeMs))
-  }, [snapshot, now, rangeMs, currentSessionId])
+    return source?.history ?? []
+  }, [snapshot, currentSessionId])
+
+  /** Furthest the live scrubber can go back while the window still has data. */
+  const liveMaxOffset = useMemo(() => {
+    if (rawHistory.length < 2) return 0
+    let minT = Infinity
+    let maxT = -Infinity
+    for (const point of rawHistory) {
+      if (point.t < minT) minT = point.t
+      if (point.t > maxT) maxT = point.t
+    }
+    return Math.max(0, (maxT - minT) - rangeMs)
+  }, [rawHistory, rangeMs])
+
+  const liveOffsetClamped = Math.min(liveOffset, liveMaxOffset)
+
+  const topHistory = useMemo(() => {
+    if (snapshot === null || snapshot.sessions.length === 0) return []
+    // Scrub: show the window ending `liveOffsetClamped` ms before `now`,
+    // so dragging the bar reveals how the curve looked earlier.
+    const end = now - liveOffsetClamped
+    return toConsumption(filterRange(rawHistory, end, rangeMs, end))
+  }, [rawHistory, now, liveOffsetClamped, rangeMs])
 
   /** Peak consumption rate (tokens/second) inside the selected window. */
   const peakRate = useMemo(() => {
@@ -1864,8 +1935,9 @@ export function TokenHud({ t, sessionsList }: {
                     </div>
                   )}
                   <div className={css.sparkWrap}>
-                    <Sparkline points={topHistory} now={now} follow t={t} />
+                    <Sparkline points={topHistory} now={now - liveOffsetClamped} follow t={t} />
                   </div>
+                  <Scrubber offset={liveOffsetClamped} max={liveMaxOffset} onChange={setLiveOffset} t={t} />
                 </section>
               )}
               <section className={css.section}>
