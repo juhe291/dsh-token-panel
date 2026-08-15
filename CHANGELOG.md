@@ -4,6 +4,16 @@
 
 **中文** ｜ [English](CHANGELOG.en.md)
 
+## [Unreleased]
+
+### 新增
+
+- **一键卸载脚本**：随包附带 `scripts/uninstall.mjs`——刚发布的插件（不足约 24 小时）会被 DSH supply-chain 年龄校验拦住 `dsh plugin remove`，此脚本直接调用 pnpm 绕开该校验，并同步清理 `dsh.profile.bundles` 注册，一条命令完成卸载
+
+### 文档
+
+- 安装说明：推荐 `dsh-token-panel@latest`，补充「装到旧版本」排查（精确版本重装）与 `dsh` 命令找不到的解决方式
+
 ## [0.4.6] - 2026-08-15
 
 ### 新增

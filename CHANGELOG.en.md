@@ -4,6 +4,16 @@ This file records user-visible changes to dsh-token-panel. Format based on [Keep
 
 [中文版](CHANGELOG.md) ｜ **English**
 
+## [Unreleased]
+
+### Added
+
+- **One-command uninstall script**: the package ships `scripts/uninstall.mjs` — a freshly published plugin (under the ~24h supply-chain minimum release age) can make `dsh plugin remove` fail its lockfile verification; this script calls pnpm directly (bypassing that check) and removes the `dsh.profile.bundles` entry, uninstalling in one command
+
+### Docs
+
+- Install docs now recommend `dsh-token-panel@latest`, with troubleshooting for "installed an old version" (reinstall with an exact version) and for a missing `dsh` command
+
 ## [0.4.6] - 2026-08-15
 
 ### Added

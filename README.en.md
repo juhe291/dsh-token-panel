@@ -49,6 +49,12 @@ The npm package ships the built `lib/` artifacts — **no local build needed**. 
 dsh plugin --profile web remove dsh-token-panel
 ```
 
+> 💡 **One-command fallback**: a freshly published plugin (under the ~24h supply-chain minimum release age) can make `dsh plugin remove` fail its lockfile verification. The package ships a one-command uninstaller that calls pnpm directly (bypassing that check) and cleans the bundle registration:
+> ```sh
+> node ~/.dsh/profiles/web/node_modules/dsh-token-panel/scripts/uninstall.mjs
+> ```
+> Restart the profile afterwards. Once the package is older than the policy cutoff (~24h), `dsh plugin remove` works normally again.
+
 ### From GitHub
 
 ```sh
