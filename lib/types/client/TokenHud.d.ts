@@ -261,8 +261,18 @@ export interface TokenHudLocale {
     readonly hideHud: string;
     /** Tooltip on the hide item: how to restore. */
     readonly hideHudRestore: string;
+    /** Settings-page description under the hide switch. */
+    readonly hideHudDesc: string;
+    /** Settings-page nav label for the token-panel section. */
+    readonly settingsTitle: string;
 }
 type Translate = (key: keyof TokenHudLocale) => string;
+/** DSH settings page section: a visual "hide the HUD" switch. It reads and
+ *  writes the same localStorage flag as the long-press menu item, so both
+ *  stay in sync and the HUD picks the change up within a poll tick. */
+export declare function TokenPanelSettingsSection({ t }: {
+    readonly t: Translate;
+}): JSX.Element;
 /** The top-level HUD: polling, view switching and layout. */
 export declare function TokenHud({ t, sessionsList }: {
     readonly t: Translate;

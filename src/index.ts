@@ -29,7 +29,6 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Session } from '@deepseek-ai/dsh-session'
 import type { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection'
 import type { SessionTitleService } from '@deepseek-ai/dsh-session-title'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { TokenMeter, TokenUsageProjection } from '@deepseek-ai/dsh-token-meter'
 
 export const name = 'dsh-token-panel'
@@ -323,8 +322,6 @@ export class TokenPanelService extends Service {
   private lastTpsAt = 0
   private cachedBalance: { value: number; currency: string; at: number } | null = null
   private balanceInFlight = false
-  /** Live override from the DSH settings section (null = use config.hidden). */
-  public hiddenOverride: boolean | null = null
 
   constructor(ctx: Context, public readonly config: Config) {
     super(ctx, 'tokenPanel')
@@ -703,7 +700,7 @@ export class TokenPanelService extends Service {
       modelPrices: this.resolveModelPrices(now),
       tps,
       budgetMonthly: this.config.budgetMonthly,
-      hidden: this.hiddenOverride ?? this.config.hidden === true,
+      hidden: this.config.hidden === true,
     }
   }
 
@@ -884,23 +881,6 @@ function json(res: ServerResponse, status: number, body: unknown): void {
 
 export function apply(ctx: Context, config: Config): void {
   const service = new TokenPanelService(ctx, config)
-
-  // DSH settings section: a visual "hide the HUD" toggle on the settings page
-  // (Plugins → token-panel). Non-fatal when no settings service is mounted.
-  try {
-    installSettingsSection(ctx, settingsNamespace('token-panel'),
-      z.object({ hidden: z.boolean().default(false) }),
-      { hidden: config.hidden === true },
-      {
-        setSource: (current) => {
-          const value = current() as { hidden?: boolean } | undefined
-          service.hiddenOverride = value?.hidden === true
-        },
-        onChange: () => { /* nothing derived needs recomputing */ },
-      })
-  } catch (error) {
-    ctx.logger.warn(`token-panel: settings section unavailable: ${String(error)}`)
-  }
 
   let webRegistered = false
   const registerWebSurface = (): void => {

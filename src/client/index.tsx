@@ -2,9 +2,10 @@
 
 import type { ClientContext, SessionListState, ObservableSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { LocaleNamespaceMap } from '@deepseek-ai/dsh-client-ui-slots'
 import { createRoot } from 'react-dom/client'
-import { TokenHud, type TokenHudLocale } from './TokenHud.tsx'
+import { TokenHud, TokenPanelSettingsSection, type TokenHudLocale } from './TokenHud.tsx'
 
 /** Locale namespace for the HUD copy. */
 const NS = 'token-panel'
@@ -113,6 +114,8 @@ export function apply(ctx: ClientContext): void {
     scrubLabel: 'Scrub through time',
     hideHud: 'Hide HUD',
     hideHudRestore: 'Hidden — restore from DSH settings',
+    hideHudDesc: 'Hide the whole panel (pill included). Switch off to restore.',
+    settingsTitle: 'Token Panel',
   }
   const zh: TokenHudLocale = {
     token: 'TOKEN HUD',
@@ -202,6 +205,8 @@ export function apply(ctx: ClientContext): void {
     scrubLabel: '拖动查看更早时间',
     hideHud: '隐藏 HUD',
     hideHudRestore: '已隐藏 — 可在 DSH 设置中恢复',
+    hideHudDesc: '隐藏整个面板（含右下角胶囊）。关闭即可恢复。',
+    settingsTitle: 'Token 面板',
   }
 
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'token-panel: locale')
@@ -216,4 +221,15 @@ export function apply(ctx: ClientContext): void {
     root.unmount()
     host.remove()
   }, 'token-panel: hud')
+
+  // DSH settings page section: a "hide the HUD" switch. Writes the same
+  // localStorage flag as the long-press menu item, so the HUD (which polls
+  // the snapshot and re-reads the flag) picks it up within a poll tick.
+  ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'token-panel',
+    order: 100,
+    label: () => t('settingsTitle'),
+    inject: () => ({ t }),
+  }, TokenPanelSettingsSection)), 'token-panel: settings section')
 }

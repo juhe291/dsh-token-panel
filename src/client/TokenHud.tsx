@@ -337,6 +337,10 @@ export interface TokenHudLocale {
   readonly hideHud: string
   /** Tooltip on the hide item: how to restore. */
   readonly hideHudRestore: string
+  /** Settings-page description under the hide switch. */
+  readonly hideHudDesc: string
+  /** Settings-page nav label for the token-panel section. */
+  readonly settingsTitle: string
 }
 
 type Translate = (key: keyof TokenHudLocale) => string
@@ -876,6 +880,34 @@ function Scrubber({ offset, max, onChange, t }: {
   )
 }
 
+/** DSH settings page section: a visual "hide the HUD" switch. It reads and
+ *  writes the same localStorage flag as the long-press menu item, so both
+ *  stay in sync and the HUD picks the change up within a poll tick. */
+export function TokenPanelSettingsSection({ t }: {
+  readonly t: Translate
+}): JSX.Element {
+  const [hidden, setHidden] = useState<boolean>(() => {
+    try { return window.localStorage.getItem('dsh-token-panel-hidden') === '1' } catch { return false }
+  })
+  const toggle = (): void => {
+    const next = !hidden
+    try { window.localStorage.setItem('dsh-token-panel-hidden', next ? '1' : '0') } catch { /* ignore */ }
+    setHidden(next)
+  }
+  return (
+    <div className={css.settingsRow}>
+      <div className={css.settingsText}>
+        <span className={css.settingsTitle}>{t('hideHud')}</span>
+        <span className={css.settingsDesc}>{t('hideHudDesc')}</span>
+      </div>
+      <button type="button" role="switch" aria-checked={hidden}
+        className={css.settingsSwitch} data-on={hidden} onClick={toggle}>
+        <span className={css.settingsThumb} aria-hidden />
+      </button>
+    </div>
+  )
+}
+
 /** Collapsed pill shown when the panel is closed. */
 function CollapsedChip({ total, cumulative, tps, t }: {
   readonly total: number
@@ -1260,15 +1292,20 @@ export function TokenHud({ t, sessionsList }: {
     try { return window.localStorage.getItem('dsh-token-panel-hidden') === '1' } catch { return false }
   })
   /** Host-config hidden transitions true→false mean the user re-enabled the
-   *  HUD from DSH settings — clear any menu-based hide so it reappears. */
+   *  HUD from DSH settings — clear any menu-based hide so it reappears. Also
+   *  re-read the localStorage flag each poll so the DSH settings-page switch
+   *  (same flag) takes effect within a poll tick. */
   const prevHiddenRef = useRef<boolean | null>(null)
   useEffect(() => {
-    const current = snapshot?.hidden === true
-    if (prevHiddenRef.current === true && !current) {
+    let lsHidden = false
+    try { lsHidden = window.localStorage.getItem('dsh-token-panel-hidden') === '1' } catch { /* ignore */ }
+    const hostHidden = snapshot?.hidden === true
+    if (prevHiddenRef.current === true && !hostHidden) {
       try { window.localStorage.removeItem('dsh-token-panel-hidden') } catch { /* ignore */ }
-      setUserHidden(false)
+      lsHidden = false
     }
-    prevHiddenRef.current = current
+    prevHiddenRef.current = hostHidden
+    setUserHidden(lsHidden)
   }, [snapshot])
   /** Which editable value is being edited: 'budget' | 'balance' | null. */
   const [editing, setEditing] = useState<'budget' | 'balance' | null>(null)

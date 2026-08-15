@@ -199,8 +199,6 @@ export declare class TokenPanelService extends Service {
     private lastTpsAt;
     private cachedBalance;
     private balanceInFlight;
-    /** Live override from the DSH settings section (null = use config.hidden). */
-    hiddenOverride: boolean | null;
     constructor(ctx: Context, config: Config);
     /** Rebuild per-session per-model buckets by replaying the usage logs. */
     private rebuildSessionModelUsage;
