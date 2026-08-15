@@ -1748,7 +1748,7 @@ export function TokenHud({ t, sessionsList }: {
   }, [])
 
   const totals = useMemo(() => {
-    if (snapshot === null) return { total: 0, output: 0 }
+    if (snapshot === null) return { total: 0, output: 0, cumulative: 0 }
     let total = 0
     let output = 0
     let cumulative = 0
