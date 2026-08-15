@@ -531,14 +531,6 @@
   font-family: var(--token-panel-mono);
 }
 
-/* Hover bubble on daily/monthly stat curves: the point's token value. */
-.sparkBubbleValue {
-  fill: var(--dsw-alias-label-primary-foreground);
-  font-size: 9px;
-  font-weight: 700;
-  font-family: var(--token-panel-mono);
-}
-
 .sparkEmpty {
   display: flex;
   align-items: center;
