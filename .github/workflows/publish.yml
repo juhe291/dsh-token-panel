@@ -41,7 +41,10 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ -n "$NPM_TOKEN" ]; then
-            echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+            # setup-node redirects npm config to $NPM_CONFIG_USERCONFIG
+            # (a temp file), so append the token where npm will read it.
+            target="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+            printf '\n//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" >> "$target"
           fi
 
       - name: Publish
