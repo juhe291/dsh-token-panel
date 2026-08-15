@@ -4,6 +4,13 @@ This file records user-visible changes to dsh-token-panel. Format based on [Keep
 
 [中文版](CHANGELOG.md) ｜ **English**
 
+## [0.4.2] - 2026-08-15
+
+### Changed
+
+- The cost display fixes recorded under 0.4.1 (sub-cent `¥0.001` display, thousands separators) are **actually shipped to npm in this release** — the npm 0.4.1 tarball predates them
+- README install notes: npm install needs no build; Git / local installs require Node ≥ 22.5
+
 ## [0.4.1] - 2026-08-15
 
 ### Changed
